@@ -1,0 +1,11 @@
+<?xml version="1.0" ?>
+<launch>
+  <node name="pg70" pkg="pg70" type="pg70" output="screen" >
+    <rosparam>
+      gripper_id: 12
+      portname: /dev/ttyS0
+      baudrate: 9600      
+    </rosparam>  
+  </node>
+  
+</launch>

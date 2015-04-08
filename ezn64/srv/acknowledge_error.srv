@@ -1,0 +1,3 @@
+bool acknowledge_request
+---
+bool acknowledge_response
