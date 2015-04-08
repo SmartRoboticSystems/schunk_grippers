@@ -53,11 +53,11 @@ public:
     ~EZN64_usb();
      uint16_t CRC16(uint16_t crc, uint16_t data);   //checksum function
 
-     bool reference(serial::Serial *port);
-     void set_position(serial::Serial *port, int position, int velocity, int acceleration);
-     int  get_state(serial::Serial *port);
-     bool stop(serial::Serial *port);
-     bool acknowledge_error(serial::Serial *port);
+     int reference(libusb_device_handle *handle);
+     int set_position(libusb_device_handle *handle, int position, int velocity, int acceleration);
+     int  get_state(libusb_device_handle *handle);
+     int stop(libusb_device_handle *handle);
+     int acknowledge_error(libusb_device_handle *handle);
 
      //Service callbacks
      bool reference_callback(ezn64::reference::Request &req,
@@ -78,17 +78,18 @@ public:
      //Libusb functions
      libusb_device* find_ezn64_dev(int VendorID, int ProductID);
      libusb_device_handle* open_ezn64_dev(libusb_device *dev);
-     int close_ezn64_dev(libusb_device_handle *handle);
+     int close_ezn64_dev(libusb_device_handle *handle, libusb_context *usb_context);
+     int usb_transaction(libusb_device_handle *handle, std::vector<uint8_t> output);
+
+
 
      void print_libusb_dev(libusb_device *dev);
 
 private:
-    serial::Serial *com_port;
     int gripper_id;
     int vendor_id;
     int product_id;
-    std::string portname;
-    double baudrate;
+
     uint32_t *ieee754_position_tbl;
     uint32_t *ieee754_velocity_tbl;
     uint32_t *ieee754_acceleration_tbl;
@@ -97,6 +98,7 @@ private:
     libusb_device *ezn64_dev;
     libusb_context *usb_context;
     libusb_device_handle *ezn64_handle;
+
 
 
 
