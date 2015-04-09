@@ -44,49 +44,19 @@ EZN64_usb::EZN64_usb(ros::NodeHandle *nh)
     nh->getParam("ezn64/product_id", product_id);
 
     //Initialize USB and look for Schunk EZN64 controller
+    int r;
     ezn64_dev = find_ezn64_dev(vendor_id, product_id);
+    print_libusb_dev(ezn64_dev);
     ezn64_handle = open_ezn64_dev(ezn64_dev);
 
-    int temp = close_ezn64_dev(ezn64_handle, usb_context);
+    r = acknowledge_error(ezn64_handle);
+    ros::Duration(2).sleep();
+    r = set_position(ezn64_handle, 12);
+    ros::Duration(5).sleep();
+    r = reference(ezn64_handle);
+    ros::Duration(2).sleep();
 
-
-    //IEEE754 table to convert uint32_t values storing gripper position to <0-6> mm
-    uint32_t position_data[7] = {
-    0x00000000, 0x3f800000, 0x40000000, 0x40400000, 0x40800000,
-    0x40a00000, 0x40c00000   };
-    ieee754_position_tbl = position_data;
-
-    //IEEE754 table to convert uint32_t values storing gripper position to <0 -80> mm/s
-    uint32_t velocity_data[81] = {
-    0x00000000, 0x3f800000, 0x40000000, 0x40400000, 0x40800000,
-    0x40a00000, 0x40c00000, 0x40e00000, 0x41000000, 0x41100000,
-    0x41200000, 0x41300000, 0x41400000, 0x41500000, 0x41600000,
-    0x41700000, 0x41800000, 0x41880000, 0x41900000, 0x41980000,
-    0x41a00000, 0x41a80000, 0x41b00000, 0x41b80000, 0x41c00000,
-    0x41c80000, 0x41d00000, 0x41d80000, 0x41e00000, 0x41e80000,
-    0x41f00000, 0x41f80000, 0x42000000, 0x42040000, 0x42080000,
-    0x420c0000, 0x42100000, 0x42140000, 0x42180000, 0x421c0000,
-    0x42200000, 0x42240000, 0x42280000, 0x422c0000, 0x42300000,
-    0x42340000, 0x42380000, 0x423c0000, 0x42400000, 0x42440000,
-    0x42480000, 0x424c0000, 0x42500000, 0x42540000, 0x42580000,
-    0x425c0000, 0x42600000, 0x42640000, 0x42680000, 0x426c0000,
-    0x42700000, 0x42740000, 0x42780000, 0x427c0000, 0x42800000,
-    0x42820000, 0x42840000, 0x42860000, 0x42880000, 0x428a0000,
-    0x428c0000, 0x428e0000, 0x42900000, 0x42920000, 0x42940000,
-    0x42960000, 0x42980000, 0x429a0000, 0x429c0000, 0x429e0000,
-    0x42a00000};
-    ieee754_velocity_tbl = velocity_data;
-
-     //IEEE754 table to convert uint32_t values storing gripper position to <0..10..20..320> mm/s2
-    uint32_t acceleration_data[33] = {
-    0x00000000, 0x41200000, 0x41a00000, 0x41f00000, 0x42200000,
-    0x42480000, 0x42700000, 0x428c0000, 0x42a00000, 0x42b40000,
-    0x42c80000, 0x42dc0000, 0x42f00000, 0x43020000, 0x430c0000,
-    0x43160000, 0x43200000, 0x432a0000, 0x43340000, 0x433e0000,
-    0x43480000, 0x43520000, 0x435c0000, 0x43660000, 0x43700000,
-    0x437a0000, 0x43820000, 0x43870000, 0x438c0000, 0x43910000,
-    0x43960000, 0x439b0000, 0x43a00000};
-    ieee754_acceleration_tbl = acceleration_data;
+    r = close_ezn64_dev(ezn64_handle, usb_context);
 
 }
 
@@ -98,258 +68,172 @@ EZN64_usb::~EZN64_usb()
 int
 EZN64_usb::reference(libusb_device_handle *handle)
 {
+    std::cout << "EZN64 INFO: Referencing" << std::endl;
     std::vector<uint8_t> output;
-    output.push_back(0x05);           //message from master to module
-    output.push_back(gripper_id);     //module id
     output.push_back(0x01);           //D-Len
     output.push_back(0x92);           //Command reference
 
-    //Checksum calculation
-    uint16_t crc = 0;
-
-    for(size_t i = 0; i < output.size(); i++)
-       crc = CRC16(crc,output[i]);
-
-    //Add checksum to the output buffer
-    output.push_back(crc & 0x00ff);
-    output.push_back((crc & 0xff00) >> 8);
-
     //Send message to the module
-    int r = usb_transaction(handle, output);
-    return r;
+    std::vector<uint8_t> input;
+    input = usb_transaction(handle, output, 4);
 
-/*    //Read and process response
-     std::vector<uint8_t> input;
-     ros::Duration(0.2).sleep();
-     port->read(input,8);
-
-     if(input.size() > 0){
-         std::cout << "EZN64 INFO: Cmd Reference response recieved " << std::endl;
-         for(size_t i = 0; i < input.size(); i++)
-             ROS_INFO("Byte %i: %x", i, input[i]);
-         if(input[0] == 0x07) {
-             if(input[1] == gripper_id) {
-                 if(input[3] == 0x92)
-                 {
-                     if((input[4] == 0x4f) && (input[5] == 0x4f))
-                     {
-                         std::cout << "Referencing..." << std::cout;
-                         return(true);
-                     }
-                 }
-                 else
-                 {
-                     std::cout << "EZN64 WARN: Not get_state response" << std::endl;
-                     return(false);
-                 }
-             }
-             else
-             {
-                 std::cout << "EZN64 WARN: Wrong module id number" << std::endl;
-                 return(false);
-             }
+     if(input.size() > 0)
+     {
+        if(input[1] == 0x92)
+         {
+            if((input[2] == 0x4f) && (input[3] == 0x4b))
+            {
+                std::cout << "Referencing successful " << std::cout;
+                return 0;
+            }
          }
          else
          {
-             std::cout << "EZN64 WARN: Not 'slave -> master' package" << std::endl;
-             return(false);
+                std::cout << "EZN64 WARN: Not get_state response" << std::endl;
+                return -1;
          }
      }
      else
      {
          std::cout <<"EZN64 WARN: No response recieved" << std::endl;
-         return(false);
+         return -1;
      }
-*/
-
 }
 
 int
-EZN64_usb::set_position(libusb_device_handle *handle, int position, int velocity, int acceleration)
+EZN64_usb::set_position(libusb_device_handle *handle, int position)
 {
 
+    uint32_t ieee754_position_tbl[13] = {
+    0x00000000, 0x3f800000, 0x40000000, 0x40400000, 0x40800000,
+    0x40a00000, 0x40c00000, 0x40e00000, 0x41000000, 0x41100000,
+    0x41200000, 0x41300000, 0x41400000};
+
     std::vector<uint8_t> output;
-    output.push_back(0x05);                                         //message from master to module
-    output.push_back(gripper_id);                                   //module id
-    output.push_back(0x0D);                                         //D-Len
+    output.push_back(0x05);                                         //D-Len
     output.push_back(0xb0);                                         //Command mov pos
-    //Position <0-69>mm
+
     output.push_back( ieee754_position_tbl[position] & 0x000000ff);         //Position first byte
     output.push_back((ieee754_position_tbl[position] & 0x0000ff00) >> 8);   //Position second byte
     output.push_back((ieee754_position_tbl[position] & 0x00ff0000) >> 16);  //Position third byte
     output.push_back((ieee754_position_tbl[position] & 0xff000000) >> 24);  //Position fourth byte
 
-    //Velocity<0-82>mm/s
-    output.push_back( ieee754_velocity_tbl[velocity] & 0x000000ff);         //Velocity first byte
-    output.push_back((ieee754_velocity_tbl[velocity] & 0x0000ff00) >> 8);   //Velocity second byte
-    output.push_back((ieee754_velocity_tbl[velocity] & 0x00ff0000) >> 16);  //Velocity third byte
-    output.push_back((ieee754_velocity_tbl[velocity] & 0xff000000) >> 24);  //Velocity fourth byte
-
-    //Acceleration<0-320>mm/s2
-    output.push_back( ieee754_acceleration_tbl[acceleration/10] & 0x000000ff);         //Acceleration first byte
-    output.push_back((ieee754_acceleration_tbl[acceleration/10] & 0x0000ff00) >> 8);   //Acceleration second byte
-    output.push_back((ieee754_acceleration_tbl[acceleration/10] & 0x00ff0000) >> 16);  //Acceleration third byte
-    output.push_back((ieee754_acceleration_tbl[acceleration/10] & 0xff000000) >> 24);  //Acceleration fourth byte
-
-    //Checksum calculation
-    uint16_t crc = 0;
-
-    for(size_t i = 0; i < output.size(); i++)
-       crc = CRC16(crc,output[i]);
-
-    //Add checksum to the output buffer
-    output.push_back(crc & 0x00ff);
-    output.push_back((crc & 0xff00) >> 8);
-
-    //Send message to the module
-    int r = usb_transaction(handle, output);
-    return r;
-
-    //Console output (DEBUG purposes)
-    std::cout << "Output: " << std::endl;
-    for(size_t i=0; i < output.size(); i++)
-        ROS_INFO("Byte %i: %x", i, output[i]);
-\
+    //Send message to the module and recieve response
+    std::vector<uint8_t> input;
+    input = usb_transaction(handle, output,6);
+    if(input.size() > 0)   return 0;
+    else    return -1;
 }
 
 int
 EZN64_usb::get_state(libusb_device_handle *handle)
 {
+    uint32_t ieee754_position_tbl[13] = {
+    0x00000000, 0x3f800000, 0x40000000, 0x40400000, 0x40800000,
+    0x40a00000, 0x40c00000, 0x40e00000, 0x41000000, 0x41100000,
+    0x41200000, 0x41300000, 0x41400000};
+
     std::vector<uint8_t> output;
-    output.push_back(0x05);                 //message from master to module
-    output.push_back(gripper_id);           //module id
     output.push_back(0x01);                 //D-Len
     output.push_back(0x95);                 //Command get state
 
-    //Checksum calculation
-    uint16_t crc = 0;
-
-    for(size_t i = 0; i < output.size(); i++)
-       crc = CRC16(crc,output[i]);
-
-    //Add checksum to the output buffer
-    output.push_back(crc & 0x00ff);
-    output.push_back((crc & 0xff00) >> 8);
-
-    //Clear input buffer and send get_state message to the module
-    int r = usb_transaction(handle, output);
-    return r;
-
-/*   //Read and process current state message
+    //Send get_state message to the module and recieve response
     std::vector<uint8_t> input;
-    ros::Duration(0.2).sleep();
-    port->read(input,20);
+    input = usb_transaction(handle, output, 15);
 
-    if(input.size() > 0){
-        std::cout << "EZN64 INFO: Response Recieved " << std::endl;
-        for(size_t i = 0; i < input.size(); i++)
-            ROS_INFO("Byte %i: %x", i, input[i]);
-        if(input[0] == 0x07) {
-            if(input[1] == gripper_id) {
-                if(input[3] == 0x95)
-                {
-                    uint32_t position;
-                    position = (input[7] << 24) | ((input[6] & 0xf0) << 16);        //Merge 2 most significant position bytes to single variable
-                    for(size_t i = 0; i <= 70; i++)                                  //Lookup real position in IEEE754 table
-                      if(position == ieee754_position_tbl[i]) return(i+1);          //return index corresponding to position in mm
-                }
-                else std::cout << "EZN64 WARN: Not get_state response" << std::endl;
-            }
-            else std::cout << "EZN64 WARN: Wrong module id number" << std::endl;
+   //Read and process current state message
+    if(input.size() > 0)
+    {
+        if(input[1] == 0x95)
+        {
+           uint32_t position;
+           position = (input[5] << 24) | ((input[4] & 0xf0) << 16);        //Merge 2 most significant position bytes to single variable
+           for(size_t i = 0; i <= 13; i++)                                  //Lookup real position in IEEE754 table
+                if(position == ieee754_position_tbl[i]) return(i+1);          //return index corresponding to position in mm
         }
-        else std::cout << "EZN64 WARN: Not 'slave -> master' package" << std::endl;
+        else
+        {
+            std::cout << "EZN64 WARN: Not get_state response" << std::endl;
+            return -1;
+        }
+     }
+    else
+    {
+        std::cout << "EZN64 WARN: Wrong module id number" << std::endl;
+        return -1;
     }
-    else std::cout <<"EZN64 WARN: No response recieved" << std::endl;
-*/
+
 }
 
 int
 EZN64_usb::stop(libusb_device_handle *handle)
 {
     std::vector<uint8_t> output;
-    output.push_back(0x05);                                         //message from master to module
-    output.push_back(gripper_id);                                   //module id
     output.push_back(0x01);                                         //D-Len
     output.push_back(0x91);                                         //Command stop
 
-    //Checksum calculation
-    uint16_t crc = 0;
-
-    for(size_t i = 0; i < output.size(); i++)
-       crc = CRC16(crc,output[i]);
-
-    //Add checksum to the output buffer
-    output.push_back(crc & 0x00ff);
-    output.push_back((crc & 0xff00) >> 8);
-
     //Send message to the module
-    int r = usb_transaction(handle, output);
-    return r;
-/*    //Read and process response
     std::vector<uint8_t> input;
-    port->read(input,7);
+    input = usb_transaction(handle, output, 4);
 
-    if(input[0] == 0x07) {
-        if(input[1] == gripper_id) {
-            if(input[3] == 0x91) {
-                if((input[4] == 0x4B) && (input[5] == 0x4b)){
-                    std::cout << "EZN64 INFO: Stop movement successfull " << std::endl;
-                    return(true);
-                }
-                else{
-                    std::cout << "EZN64 WARN: Stop movement not successfull " << std::endl;
-                    return(false);
-                }
-
+    //Read and process response
+    if(input.size() > 0)
+    {
+        if(input[1] == 0x91)
+        {
+            if((input[2] == 0x4f) && (input[3] == 0x4b))
+            {
+                std::cout << "EZN64 INFO: Stop movement successfull " << std::endl;
+                return 0;
             }
-            else std::cout << "EZN64 WARN: Not stop cmd response" << std::endl;
+            else
+            {
+                std::cout << "EZN64 WARN: Stop movement not successfull " << std::endl;
+                return -1;
+            }
         }
-        else std::cout << "EZN64 WARN: Wrong module id number in response" << std::endl;
+        else
+        {
+             std::cout << "EZN64 WARN: Not stop cmd response" << std::endl;
+             return -1;
+        }
     }
-    else std::cout << "EZN64 WARN: Not slave -> master package" << std::endl;
-*/
+    else
+    {
+        std::cout << "EZN64 WARN: No response recieved" << std::endl;
+        return -1;
+    }
 }
 
 int
 EZN64_usb::acknowledge_error(libusb_device_handle *handle)
 {
     std::vector<uint8_t> output;
-    output.push_back(0x05);                                         //message from master to module
-    output.push_back(gripper_id);                                   //module id
     output.push_back(0x01);                                         //D-Len
     output.push_back(0x8b);                                         //Command cmd ack
 
-    //Checksum calculation
-    uint16_t crc = 0;
-
-    for(size_t i = 0; i < output.size(); i++)
-       crc = CRC16(crc,output[i]);
-
-    //Add checksum to the output buffer
-    output.push_back(crc & 0x00ff);
-    output.push_back((crc & 0xff00) >> 8);
-
     //Send message to the module
-    int r = usb_transaction(handle, output);
-    return r;
-/*    //Read and process response
     std::vector<uint8_t> input;
-    port->read(input,8);
+    input = usb_transaction(handle, output, 4);
 
-    if(input[0] == 0x07) {
-        if(input[1] == gripper_id) {
-            if(input[3] == 0x8b)
-            {
-                if ((input[4] == 0x4f) && (input[5] == 0x4f)) return(true);
-                else return(false);
-            }
-            else std::cout << "EZN64 WARN: Not cmd_ack response" << std::endl;
+    //Read and process response
+    if(input.size() > 0)
+    {
+        if(input[1] == 0x92)
+        {
+            if ((input[2] == 0x4f) && (input[3] == 0x4f)) return(0);
+            else return(-1);
         }
-        else std::cout << "EZN64 WARN: Wrong module id number in response" << std::endl;
+        else std::cout << "EZN64 WARN: Not cmd_ack response" << std::endl;
     }
-    else std::cout << "EZN64 WARN: Not slave -> master package" << std::endl;
-*/
+    else
+    {
+        std::cout << "EZN64 WARN: No response recieved" << std::endl;
+        return(-1);
+    }
 }
+
+
 
 ///////////////////////////////////////////////////////////////
 //CALLBACKS
@@ -374,34 +258,19 @@ EZN64_usb::set_position_callback(ezn64::set_position::Request &req,
     std::cout << "EZN64 INFO: Set position Cmd recieved" << std::endl;
 
     //Check if goal request respects gripper limits <0-10> mm
-    if ((req.goal_position > 0) && (req.goal_position < 70))
+    if ((req.goal_position > 0) && (req.goal_position < 13))
     {
-        if((req.goal_velocity > 0) && (req.goal_velocity < 83))
-        {
-            if((req.goal_acceleration > 0) && (req.goal_acceleration <= 320))
-            {
-                std::cout << "EZN64 INFO: Goal accepted " << std::endl;
-                set_position(ezn64_handle,req.goal_position, req.goal_velocity, req.goal_acceleration);
-                res.goal_accepted = true;
-            }
-            else
-            {
-                std::cout << "EZN64 WARN: Goal acceleration rejected!" << std::endl;
-                res.goal_accepted = false;
-            }
-        }
-        else
-        {
-           std::cout << "EZN64 WARN: Goal velocity rejected!" << std::endl;
-           res.goal_accepted = false;
-        }
-    }
-    else
-    {
+        std::cout << "EZN64 INFO: Goal accepted " << std::endl;
+        set_position(ezn64_handle,req.goal_position);
+        res.goal_accepted = true;
+     }
+     else
+     {
          std::cout << "EZN64 WARN: Goal position rejected!" << std::endl;
          res.goal_accepted = false;
-    }
+     }
 }
+
 bool
 EZN64_usb::get_state_callback(ezn64::get_state::Request &req,
                                  ezn64::get_state::Response &res)
@@ -421,8 +290,8 @@ EZN64_usb::acknowledge_error_callback(ezn64::acknowledge_error::Request &req,
        res.acknowledge_response = acknowledge_error(ezn64_handle);
     else
         res.acknowledge_response = false;
-
 }
+
 
 bool
 EZN64_usb::stop_callback(ezn64::stop::Request &req,
@@ -498,7 +367,6 @@ EZN64_usb::open_ezn64_dev(libusb_device *dev)
         std::cout << "EZN64 INFO: USB interface oppened successfully! " << std::endl;
         return handle;
     }
-
 }
 
 int
@@ -510,8 +378,8 @@ EZN64_usb::close_ezn64_dev(libusb_device_handle *handle, libusb_context *usb_con
    return 0;
 }
 
-int
-EZN64_usb::usb_transaction(libusb_device_handle *handle, std::vector<uint8_t> output)
+std::vector<uint8_t>
+EZN64_usb::usb_transaction(libusb_device_handle *handle, std::vector<uint8_t> output, int num_bytes_to_read)
 {
     int r;           //temp variable
     int byte_cnt;    //bytes counter
@@ -527,33 +395,57 @@ EZN64_usb::usb_transaction(libusb_device_handle *handle, std::vector<uint8_t> ou
 
    r = libusb_claim_interface(handle, 0); //claim interface 0 (the first) of device (mine had jsut 1)
 
-   if(r < 0)
-   {
-      std::cout << "EZN64 INFO: Cannot Claim Interface" << std::endl;
-      return 1;
-   }
+   if(r < 0) std::cout << "EZN64 INFO: Cannot Claim Interface" << std::endl;
+
    std::cout << "EZN64 INFO: Claimed Interface"<< std::endl;
 
-   //Convert std::vector<uint8_t> to unsigned char array as requested by libusb API
-   unsigned char *data = new unsigned char[output.size()];
-   for(size_t i = 0; i < output.size(); i++)
-       data[i] = output[i];
+   //Write
 
-   r = libusb_bulk_transfer(handle, (2 | LIBUSB_ENDPOINT_OUT), data, output.size(), &byte_cnt,0);
+   //Convert std::vector<uint8_t> to unsigned char array as requested by libusb API
+   unsigned char *data_out = new unsigned char[output.size()];
+   for(size_t i = 0; i < output.size(); i++)
+       data_out[i] = output[i];
+
+   r = libusb_bulk_transfer(handle, 1, data_out, output.size(), &byte_cnt,1000);
    if ((r == 0) && (byte_cnt == output.size()))
-       std::cout << "EZN64 INFO: Writing successful" << std::endl;
+       std::cout << "EZN64 INFO: Sent " << byte_cnt << " bytes" << std::endl;
    else
        std::cout << "EZN64 ERROR: Write error" << std::endl;
+
+   //Read
+
+   std::vector<uint8_t> input;
+   unsigned char *data_in = new unsigned char[512];
+
+   r = libusb_bulk_transfer(handle, 129, data_in, 512, &byte_cnt,1000);
+   std::cout << "R: " << r << std::endl;
+   if(r == 0)
+   {
+        std::cout << "EZN64 INFO: " << byte_cnt << " bytes recieved" << std::endl;
+        for(size_t i = 0; i < num_bytes_to_read; i++)
+        {
+            input.push_back(data_in[i]);
+            ROS_INFO("Byte: %x", data_in[i]);
+        }
+   }
+   else
+   {
+       std::cout << "EZN64 ERROR: Read response message error " << std::endl;
+   }
+
+   //Release interface
 
    r = libusb_release_interface(handle, 0);  //release the claimed interface
    if(r != 0)
    {
        std::cout << "EZN64 ERROR: Cannot release the claimed interface" << std::endl;
-       return 1;
    }
+
    std::cout << "EZN64 INFO: Released Interface " << std::endl;
-   delete[] data;
-   return 0;
+   delete[] data_out;
+   delete[] data_in;
+
+   return input;
 }
 
 
@@ -567,13 +459,13 @@ EZN64_usb::print_libusb_dev(libusb_device *dev)
        return;
     }
 
-   std::cout << "EZN64 INFO: Number of possible configurations: " << (int)desc.bNumConfigurations<<"  ";
+   std::cout << "EZN64 INFO: Number of possible configurations: " << (int)desc.bNumConfigurations<<"  " << std::endl;
    std::cout << "VendorID: "  << desc.idVendor <<"  ";
    std::cout << "ProductID: " << desc.idProduct<< std::endl;
 
    libusb_config_descriptor *config;
    libusb_get_config_descriptor(dev, 0, &config);
-   std::cout<<"EZN64 INFO: Interfaces: "<<(int)config->bNumInterfaces<<" ||| ";
+   std::cout<<"EZN64 INFO: Interfaces: "<<(int)config->bNumInterfaces<< std::endl;
 
    const libusb_interface *inter;
    const libusb_interface_descriptor *interdesc;
@@ -581,15 +473,15 @@ EZN64_usb::print_libusb_dev(libusb_device *dev)
 
    for(int i=0; i<(int)config->bNumInterfaces; i++) {
        inter = &config->interface[i];
-       std::cout<<"Number of alternate settings: "<<inter->num_altsetting<<" | ";
+       std::cout<<"Number of alternate settings: "<<inter->num_altsetting<< std::endl;
        for(int j=0; j<inter->num_altsetting; j++) {
            interdesc = &inter->altsetting[j];
-           std::cout << "Interface Number: " <<(int)interdesc->bInterfaceNumber<<" | ";
-           std::cout << "Number of endpoints: " <<(int)interdesc->bNumEndpoints<<" | ";
+           std::cout << "Interface Number: " <<(int)interdesc->bInterfaceNumber << std::endl;
+           std::cout << "Number of endpoints: " <<(int)interdesc->bNumEndpoints << std::endl;
            for(int k=0; k<(int)interdesc->bNumEndpoints; k++) {
                epdesc = &interdesc->endpoint[k];
-               std::cout <<"Descriptor Type: "<<(int)epdesc->bDescriptorType<<" | ";
-               std::cout <<"EP Address: "<<(int)epdesc->bEndpointAddress<<" | ";
+               std::cout <<"Descriptor Type: "<<(int)epdesc->bDescriptorType << std::endl;
+               std::cout <<"EP Address: "<<(int)epdesc->bEndpointAddress << std::endl;
                }
           }
   }
