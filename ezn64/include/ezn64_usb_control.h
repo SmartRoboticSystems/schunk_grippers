@@ -79,7 +79,7 @@ public:
      libusb_device* find_ezn64_dev(int VendorID, int ProductID);
      libusb_device_handle* open_ezn64_dev(libusb_device *dev);
      int close_ezn64_dev(libusb_device_handle *handle, libusb_context *usb_context);
-     std::vector<uint8_t> usb_transaction(libusb_device_handle *handle, std::vector<uint8_t> output, int num_bytes_to_read);
+     std::vector<uint8_t> usb_transaction(libusb_device_handle *handle, std::vector<uint8_t> output);
 
      void print_libusb_dev(libusb_device *dev);
 

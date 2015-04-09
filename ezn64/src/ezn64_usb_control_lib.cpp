@@ -75,7 +75,7 @@ EZN64_usb::reference(libusb_device_handle *handle)
 
     //Send message to the module
     std::vector<uint8_t> input;
-    input = usb_transaction(handle, output, 4);
+    input = usb_transaction(handle, output);
 
      if(input.size() > 0)
      {
@@ -120,7 +120,7 @@ EZN64_usb::set_position(libusb_device_handle *handle, int position)
 
     //Send message to the module and recieve response
     std::vector<uint8_t> input;
-    input = usb_transaction(handle, output,6);
+    input = usb_transaction(handle, output);
     if(input.size() > 0)   return 0;
     else    return -1;
 }
@@ -139,7 +139,7 @@ EZN64_usb::get_state(libusb_device_handle *handle)
 
     //Send get_state message to the module and recieve response
     std::vector<uint8_t> input;
-    input = usb_transaction(handle, output, 15);
+    input = usb_transaction(handle, output);
 
    //Read and process current state message
     if(input.size() > 0)
@@ -174,7 +174,7 @@ EZN64_usb::stop(libusb_device_handle *handle)
 
     //Send message to the module
     std::vector<uint8_t> input;
-    input = usb_transaction(handle, output, 4);
+    input = usb_transaction(handle, output);
 
     //Read and process response
     if(input.size() > 0)
@@ -214,7 +214,7 @@ EZN64_usb::acknowledge_error(libusb_device_handle *handle)
 
     //Send message to the module
     std::vector<uint8_t> input;
-    input = usb_transaction(handle, output, 4);
+    input = usb_transaction(handle, output);
 
     //Read and process response
     if(input.size() > 0)
@@ -379,7 +379,7 @@ EZN64_usb::close_ezn64_dev(libusb_device_handle *handle, libusb_context *usb_con
 }
 
 std::vector<uint8_t>
-EZN64_usb::usb_transaction(libusb_device_handle *handle, std::vector<uint8_t> output, int num_bytes_to_read)
+EZN64_usb::usb_transaction(libusb_device_handle *handle, std::vector<uint8_t> output)
 {
     int r;           //temp variable
     int byte_cnt;    //bytes counter
@@ -422,7 +422,7 @@ EZN64_usb::usb_transaction(libusb_device_handle *handle, std::vector<uint8_t> ou
    if(r == 0)
    {
         std::cout << "EZN64 INFO: " << byte_cnt << " bytes recieved" << std::endl;
-        for(size_t i = 0; i < num_bytes_to_read; i++)
+        for(size_t i = 0; i < byte_cnt; i++)
         {
             input.push_back(data_in[i]);
             ROS_INFO("Byte: %x", data_in[i]);
