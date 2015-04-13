@@ -44,6 +44,7 @@ main(int argc, char *argv[])
     ros::ServiceServer reference_service         = nh.advertiseService("reference", &EZN64_usb::reference_callback, &gripper);
     ros::ServiceServer set_position_service      = nh.advertiseService("set_position", &EZN64_usb::set_position_callback, &gripper);
     ros::ServiceServer get_state_service         = nh.advertiseService("get_state", &EZN64_usb::get_state_callback, &gripper);
+    ros::ServiceServer get_position_service      = nh.advertiseService("get_position", &EZN64_usb::get_position_callback, &gripper);
     ros::ServiceServer acknowledge_error_service = nh.advertiseService("acknowledge_error", &EZN64_usb::acknowledge_error_callback, &gripper);
     ros::ServiceServer stop_service              = nh.advertiseService("stop", &EZN64_usb::stop_callback, &gripper);
 

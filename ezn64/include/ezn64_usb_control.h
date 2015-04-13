@@ -42,8 +42,10 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <ezn64/reference.h>
 #include <ezn64/set_position.h>
 #include <ezn64/get_state.h>
+#include <ezn64/get_position.h>
 #include <ezn64/acknowledge_error.h>
 #include <ezn64/stop.h>
+
 
 
 class EZN64_usb
@@ -51,13 +53,14 @@ class EZN64_usb
 public:
     explicit EZN64_usb(ros::NodeHandle *nh);
     ~EZN64_usb();
-     uint16_t CRC16(uint16_t crc, uint16_t data);   //checksum function
 
      int reference(libusb_device_handle *handle);
-     int set_position(libusb_device_handle *handle, int position);
-     int  get_state(libusb_device_handle *handle);
+     float set_position(libusb_device_handle *handle, int goal_position, float act_position);
+     uint8_t get_state(libusb_device_handle *handle);
+     float get_position(libusb_device_handle *handle);
      int stop(libusb_device_handle *handle);
      int acknowledge_error(libusb_device_handle *handle);
+
 
      //Service callbacks
      bool reference_callback(ezn64::reference::Request &req,
@@ -69,24 +72,33 @@ public:
      bool get_state_callback(ezn64::get_state::Request &req,
                              ezn64::get_state::Response &res);
 
+     bool get_position_callback(ezn64::get_position::Request &req,
+                                ezn64::get_position::Response &res);
+
      bool acknowledge_error_callback(ezn64::acknowledge_error::Request &req,
                                      ezn64::acknowledge_error::Response &res);
 
      bool stop_callback(ezn64::stop::Request &req,
                         ezn64::stop::Response &res);
 
+
      //Libusb functions
      libusb_device* find_ezn64_dev(int VendorID, int ProductID);
      libusb_device_handle* open_ezn64_dev(libusb_device *dev);
      int close_ezn64_dev(libusb_device_handle *handle, libusb_context *usb_context);
-     std::vector<uint8_t> usb_transaction(libusb_device_handle *handle, std::vector<uint8_t> output);
-
+     void usb_write(libusb_device_handle *handle, std::vector<uint8_t> output);
+     std::vector<uint8_t> usb_read(libusb_device_handle *handle);
      void print_libusb_dev(libusb_device *dev);
+
+     float IEEE_754_to_float(uint8_t *raw);
 
 private:
     int gripper_id;
     int vendor_id;
     int product_id;
+
+    float act_position;
+    uint8_t ezn64_error;
 
     //LIBUSB Variables
     libusb_device *ezn64_dev;

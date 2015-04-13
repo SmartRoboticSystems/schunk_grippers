@@ -26,6 +26,7 @@ SET(HEADERS ${PROJECT_SOURCE_DIR}/include/ezn64_usb_control.h
 add_service_files(FILES reference.srv
                         set_position.srv
                         get_state.srv
+                        get_position.srv
                         acknowledge_error.srv
                         stop.srv)
 
