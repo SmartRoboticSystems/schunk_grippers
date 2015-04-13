@@ -50,8 +50,6 @@ EZN64_usb::EZN64_usb(ros::NodeHandle *nh) :
     print_libusb_dev(ezn64_dev);
     ezn64_handle = open_ezn64_dev(ezn64_dev);
 
-    int r;
-
     //Get initial state and discard input buffer
     while (ezn64_error == -1)
        ezn64_error = get_state(ezn64_handle);
@@ -61,12 +59,11 @@ EZN64_usb::EZN64_usb(ros::NodeHandle *nh) :
        act_position = get_position(ezn64_handle);
        ros::Duration(0.5).sleep();
 
-
 }
 
 EZN64_usb::~EZN64_usb()
 {
-      close_ezn64_dev(ezn64_handle, usb_context);
+      //close_ezn64_dev(ezn64_handle, usb_context);
 }
 
 int
@@ -84,23 +81,21 @@ EZN64_usb::reference(libusb_device_handle *handle)
 }
 
 float
-EZN64_usb::set_position(libusb_device_handle *handle, int goal_position, float act_position)
+EZN64_usb::set_position(libusb_device_handle *handle, float goal_position, float act_position)
 {
     std::cout << "EZN64 IFNO: Moving from: " << act_position << " [mm] to " << goal_position << " [mm]" << std::endl;
-
-    uint32_t ieee754_position_tbl[13] = {
-    0x00000000, 0x3f800000, 0x40000000, 0x40400000, 0x40800000,
-    0x40a00000, 0x40c00000, 0x40e00000, 0x41000000, 0x41100000,
-    0x41200000, 0x41300000, 0x41400000};
 
     std::vector<uint8_t> output;
     output.push_back(0x05);                                         //D-Len
     output.push_back(0xb0);                                         //Command mov pos
 
-    output.push_back( ieee754_position_tbl[goal_position] & 0x000000ff);         //Position first byte
-    output.push_back((ieee754_position_tbl[goal_position] & 0x0000ff00) >> 8);   //Position second byte
-    output.push_back((ieee754_position_tbl[goal_position] & 0x00ff0000) >> 16);  //Position third byte
-    output.push_back((ieee754_position_tbl[goal_position] & 0xff000000) >> 24);  //Position fourth byte
+    unsigned int IEEE754_bytes[4];                                  //Convert float to IEEE754
+    float_to_IEEE_754(goal_position, IEEE754_bytes);
+
+    output.push_back(IEEE754_bytes[0]);
+    output.push_back(IEEE754_bytes[1]);
+    output.push_back(IEEE754_bytes[2]);
+    output.push_back(IEEE754_bytes[3]);
 
     //Send message to the module and recieve response
     usb_write(handle, output);
@@ -321,7 +316,7 @@ EZN64_usb::set_position_callback(ezn64::set_position::Request &req,
     std::cout << "EZN64 INFO: Set position Cmd recieved" << std::endl;
 
     //Check if goal request respects gripper limits <0-10> mm
-    if ((req.goal_position >= 0) && (req.goal_position < 13))
+    if ((req.goal_position >= 0) && (req.goal_position < 12.4))
     {
         std::cout << "EZN64 INFO: Goal accepted " << std::endl;
         act_position = set_position(ezn64_handle,req.goal_position, act_position);
@@ -515,7 +510,6 @@ EZN64_usb::usb_read(libusb_device_handle *handle)
    //Read
    std::vector<uint8_t> input;
    unsigned char *data_in = new unsigned char[512];
-   ros::Duration(1).sleep();
 
    r = libusb_bulk_transfer(handle, 129, data_in, 512, &byte_cnt,1000);
    if(r == 0)
@@ -605,5 +599,13 @@ EZN64_usb::IEEE_754_to_float(uint8_t *raw)
         return ldexpf(significand, exponent);
 }
 
+void
+EZN64_usb::float_to_IEEE_754(float position, unsigned int *output_array)
+{
+    unsigned char *p_byte = (unsigned char*)(&position);
+
+    for(size_t i = 0; i < sizeof(float); i++)
+        output_array[i] = (static_cast<unsigned int>(p_byte[i]));
+}
 
 #endif //EZN64_USB_CONTROL_LIB_CPP

@@ -55,7 +55,7 @@ public:
     ~EZN64_usb();
 
      int reference(libusb_device_handle *handle);
-     float set_position(libusb_device_handle *handle, int goal_position, float act_position);
+     float set_position(libusb_device_handle *handle, float goal_position, float act_position);
      uint8_t get_state(libusb_device_handle *handle);
      float get_position(libusb_device_handle *handle);
      int stop(libusb_device_handle *handle);
@@ -91,6 +91,7 @@ public:
      void print_libusb_dev(libusb_device *dev);
 
      float IEEE_754_to_float(uint8_t *raw);
+     void float_to_IEEE_754(float position, unsigned int *output_array);
 
 private:
     int gripper_id;
