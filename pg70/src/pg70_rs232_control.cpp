@@ -41,11 +41,12 @@ main(int argc, char *argv[])
 
     PG70_serial gripper(&nh);
 
-    ros::ServiceServer reference_service         = nh.advertiseService("reference", &PG70_serial::reference_callback, &gripper);
-    ros::ServiceServer set_position_service      = nh.advertiseService("set_position", &PG70_serial::set_position_callback, &gripper);
-    ros::ServiceServer get_state_service         = nh.advertiseService("get_state", &PG70_serial::get_state_callback, &gripper);
-    ros::ServiceServer acknowledge_error_service = nh.advertiseService("acknowledge_error", &PG70_serial::acknowledge_error_callback, &gripper);
-    ros::ServiceServer stop_service              = nh.advertiseService("stop", &PG70_serial::stop_callback, &gripper);
+    ros::ServiceServer reference_service         = nh.advertiseService("pg70/reference", &PG70_serial::reference_callback, &gripper);
+    ros::ServiceServer set_position_service      = nh.advertiseService("pg70/set_position", &PG70_serial::set_position_callback, &gripper);
+    ros::ServiceServer get_error_service         = nh.advertiseService("pg70/get_error", &PG70_serial::get_error_callback, &gripper);
+    ros::ServiceServer get_position_service      = nh.advertiseService("pg70/get_position", &PG70_serial::get_position_callback, &gripper);
+    ros::ServiceServer acknowledge_error_service = nh.advertiseService("pg70/acknowledge_error", &PG70_serial::acknowledge_error_callback, &gripper);
+    ros::ServiceServer stop_service              = nh.advertiseService("pg70/stop", &PG70_serial::stop_callback, &gripper);
 
     ros::spin();
 

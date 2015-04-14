@@ -1,0 +1,3 @@
+bool get_error_request
+---
+int32 error_code

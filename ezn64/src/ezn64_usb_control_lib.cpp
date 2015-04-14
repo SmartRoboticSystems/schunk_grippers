@@ -222,7 +222,8 @@ EZN64_usb::get_position(libusb_device_handle *handle)
     if(input.size() > 0)
     {
         for(size_t i = 0; i < input.size(); i++)
-            if((input[i] == 0x07) && (input[i+1] == 0x95))
+	{
+	    if((input[i] == 0x07) && (input[i+1] == 0x95))
             {
                 uint8_t raw[4] = {input[i+5], input[i+4], input[i+3], input[i+2]};
                 act_position = IEEE_754_to_float(raw);
@@ -236,7 +237,8 @@ EZN64_usb::get_position(libusb_device_handle *handle)
                 std::cout << "EZN64 INFO: Actual position: " << act_position << std::endl;
                 return(act_position);
             }
-            else return(-1);
+            
+       }
     }
 }
 
@@ -262,8 +264,6 @@ EZN64_usb::acknowledge_error(libusb_device_handle *handle)
     //Send message to the module
     usb_write(handle, output);
 }
-
-
 
 ///////////////////////////////////////////////////////////////
 //CALLBACKS

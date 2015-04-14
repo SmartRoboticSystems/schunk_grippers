@@ -1,3 +1,3 @@
 bool stop_request
 ---
-bool stop_result
+float32 stop_result

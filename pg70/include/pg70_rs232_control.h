@@ -40,7 +40,8 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 //Service headers
 #include <pg70/reference.h>
 #include <pg70/set_position.h>
-#include <pg70/get_state.h>
+#include <pg70/get_error.h>
+#include <pg70/get_position.h>
 #include <pg70/acknowledge_error.h>
 #include <pg70/stop.h>
 
@@ -50,42 +51,47 @@ class PG70_serial
 public:
     explicit PG70_serial(ros::NodeHandle *nh);
     ~PG70_serial();
-     uint16_t CRC16(uint16_t crc, uint16_t data);   //checksum function
+    uint16_t CRC16(uint16_t crc, uint16_t data);   //checksum function
 
-     bool reference(serial::Serial *port);
-     void set_position(serial::Serial *port, int position, int velocity, int acceleration);
-     int  get_state(serial::Serial *port);
-     bool stop(serial::Serial *port);
-     bool acknowledge_error(serial::Serial *port);
+    //Gripper commands
+    float set_position(serial::Serial *port, int goal_position, int velocity, int acceleration);
+    float get_position(serial::Serial *port);
+    uint8_t get_error(serial::Serial *port);
+    void stop(serial::Serial *port);
+    void acknowledge_error(serial::Serial *port);
+    void reference(serial::Serial *port);
 
-     //Service callbacks
-     bool reference_callback(pg70::reference::Request &req,
-                             pg70::reference::Response &res);
+    //Service callbacks
+    bool reference_callback(pg70::reference::Request &req,
+                            pg70::reference::Response &res);
 
-     bool set_position_callback(pg70::set_position::Request &req,
-                                pg70::set_position::Response &res);
+    bool set_position_callback(pg70::set_position::Request &req,
+                               pg70::set_position::Response &res);
 
-     bool get_state_callback(pg70::get_state::Request &req,
-                             pg70::get_state::Response &res);
+    bool get_error_callback(pg70::get_error::Request &req,
+                            pg70::get_error::Response &res);
 
-     bool acknowledge_error_callback(pg70::acknowledge_error::Request &req,
-                                     pg70::acknowledge_error::Response &res);
+    bool get_position_callback(pg70::get_position::Request &req,
+                               pg70::get_position::Response &res);
 
-     bool stop_callback(pg70::stop::Request &req,
-                        pg70::stop::Response &res);
+    bool acknowledge_error_callback(pg70::acknowledge_error::Request &req,
+                                    pg70::acknowledge_error::Response &res);
 
+    bool stop_callback(pg70::stop::Request &req,
+                       pg70::stop::Response &res);
 
+    //Float - IEEE754 conversions
+    float IEEE_754_to_float(uint8_t *raw);
+    void float_to_IEEE_754(float position, unsigned int *output_array);
 
 private:
     serial::Serial *com_port;
     int gripper_id;
     std::string portname;
     double baudrate;
-    uint32_t *ieee754_position_tbl;
-    uint32_t *ieee754_velocity_tbl;
-    uint32_t *ieee754_acceleration_tbl;
 
-
+    float act_position;
+    uint8_t pg70_error;
 
 };
 

@@ -6,7 +6,6 @@ find_package(catkin REQUIRED COMPONENTS
   serial
   message_generation
 
-
 )
 
 include_directories(${catkin_INCLUDE_DIRS}
@@ -21,8 +20,10 @@ SET(SOURCES ${PROJECT_SOURCE_DIR}/src/pg70_rs232_control.cpp
 SET(HEADERS ${PROJECT_SOURCE_DIR}/include/pg70_rs232_control.h
 	    )
 
-add_service_files(FILES set_position.srv
-                        get_state.srv
+add_service_files(FILES reference.srv
+                        set_position.srv
+                        get_error.srv
+                        get_position.srv
                         acknowledge_error.srv
                         stop.srv)
 

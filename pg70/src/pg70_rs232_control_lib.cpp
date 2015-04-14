@@ -36,7 +36,9 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include <pg70_rs232_control.h>
 
-PG70_serial::PG70_serial(ros::NodeHandle *nh)
+PG70_serial::PG70_serial(ros::NodeHandle *nh) :
+    act_position(-1),
+    pg70_error(0xff)
 {
     //Read launch file params
     nh->getParam("pg70/portname", portname);
@@ -47,69 +49,25 @@ PG70_serial::PG70_serial(ros::NodeHandle *nh)
     com_port = new serial::Serial (portname, (uint32_t)baudrate, serial::Timeout::simpleTimeout(100));
 
     if (com_port->isOpen()) std::cout << "PG70 INFO: Serial port " << portname << " openned successfully" << std::endl;
-    else                    std::cout << "PG70 INFO: Serial port " << portname<< " not opened" << std::endl;
+    else                    std::cout << "PG70 ERROR: Serial port " << portname<< " not opened" << std::endl;
 
+    pg70_error = get_error(com_port);
 
-    //IEEE754 table to convert uint32_t values storing gripper position to <0-69> mm
-    uint32_t position_data[70] = {
-    0x00000000, 0x3f800000, 0x40000000, 0x40400000, 0x40800000,
-    0x40a00000, 0x40c00000, 0x40e00000, 0x41000000, 0x41100000,
-    0x41200000, 0x41300000, 0x41400000, 0x41500000, 0x41600000,
-    0x41700000, 0x41800000, 0x41880000, 0x41900000, 0x41980000,
-    0x41a00000, 0x41a80000, 0x41b00000, 0x41b80000, 0x41c00000,
-    0x41c80000, 0x41d00000, 0x41d80000, 0x41e00000, 0x41e80000,
-    0x41f00000, 0x41f80000, 0x42000000, 0x42040000, 0x42080000,
-    0x420c0000, 0x42100000, 0x42140000, 0x42180000, 0x421c0000,
-    0x42200000, 0x42240000, 0x42280000, 0x422c0000, 0x42300000,
-    0x42340000, 0x42380000, 0x423c0000, 0x42400000, 0x42440000,
-    0x42480000, 0x424c0000, 0x42500000, 0x42540000, 0x42580000,
-    0x425c0000, 0x42600000, 0x42640000, 0x42680000, 0x426c0000,
-    0x42700000, 0x42740000, 0x42780000, 0x427c0000, 0x42800000,
-    0x42820000, 0x42840000, 0x42860000, 0x42880000, 0x428a0000,
-    };
-    ieee754_position_tbl = position_data;
+    while(act_position == -1)
+    {
+        act_position = get_position(com_port);
+        ros::Duration(0.5).sleep();
+    }
 
-    //IEEE754 table to convert uint32_t values storing gripper position to <0 -82> mm/s
-    uint32_t velocity_data[83] = {
-    0x00000000, 0x3f800000, 0x40000000, 0x40400000, 0x40800000,
-    0x40a00000, 0x40c00000, 0x40e00000, 0x41000000, 0x41100000,
-    0x41200000, 0x41300000, 0x41400000, 0x41500000, 0x41600000,
-    0x41700000, 0x41800000, 0x41880000, 0x41900000, 0x41980000,
-    0x41a00000, 0x41a80000, 0x41b00000, 0x41b80000, 0x41c00000,
-    0x41c80000, 0x41d00000, 0x41d80000, 0x41e00000, 0x41e80000,
-    0x41f00000, 0x41f80000, 0x42000000, 0x42040000, 0x42080000,
-    0x420c0000, 0x42100000, 0x42140000, 0x42180000, 0x421c0000,
-    0x42200000, 0x42240000, 0x42280000, 0x422c0000, 0x42300000,
-    0x42340000, 0x42380000, 0x423c0000, 0x42400000, 0x42440000,
-    0x42480000, 0x424c0000, 0x42500000, 0x42540000, 0x42580000,
-    0x425c0000, 0x42600000, 0x42640000, 0x42680000, 0x426c0000,
-    0x42700000, 0x42740000, 0x42780000, 0x427c0000, 0x42800000,
-    0x42820000, 0x42840000, 0x42860000, 0x42880000, 0x428a0000,
-    0x428c0000, 0x428e0000, 0x42900000, 0x42920000, 0x42940000,
-    0x42960000, 0x42980000, 0x429a0000, 0x429c0000, 0x429e0000,
-    0x42a00000, 0x42a20000, 0x42a40000 };
-    ieee754_velocity_tbl = velocity_data;
-
-     //IEEE754 table to convert uint32_t values storing gripper position to <0..10..20..320> mm/s2
-    uint32_t acceleration_data[33] = {
-    0x00000000, 0x41200000, 0x41a00000, 0x41f00000, 0x42200000,
-    0x42480000, 0x42700000, 0x428c0000, 0x42a00000, 0x42b40000,
-    0x42c80000, 0x42dc0000, 0x42f00000, 0x43020000, 0x430c0000,
-    0x43160000, 0x43200000, 0x432a0000, 0x43340000, 0x433e0000,
-    0x43480000, 0x43520000, 0x435c0000, 0x43660000, 0x43700000,
-    0x437a0000, 0x43820000, 0x43870000, 0x438c0000, 0x43910000,
-    0x43960000, 0x439b0000, 0x43a00000};
-    ieee754_acceleration_tbl = acceleration_data;
-
-
-    set_position(com_port, 20,60,100);
+ /*   set_position(com_port, 20,60,100);
     ros::Duration(5).sleep();
 
     int temp_position;
     temp_position = get_state(com_port);
     std::cout << "Current position: " << temp_position << std::endl;
-
+*/
 }
+
 
 PG70_serial::~PG70_serial()
 {
@@ -117,7 +75,8 @@ PG70_serial::~PG70_serial()
     delete com_port;        //delete object
 }
 
-bool
+
+void
 PG70_serial::reference(serial::Serial *port)
 {
     std::vector<uint8_t> output;
@@ -137,82 +96,252 @@ PG70_serial::reference(serial::Serial *port)
     output.push_back((crc & 0xff00) >> 8);
 
     //Send message to the module
-    port->flushInput();
     port->write(output);
-
-    //Read and process response
-     std::vector<uint8_t> input;
-     ros::Duration(0.2).sleep();
-     port->read(input,8);
-
-     if(input.size() > 0){
-         std::cout << "PG70 INFO: Cmd Reference response recieved " << std::endl;
-         for(size_t i = 0; i < input.size(); i++)
-             ROS_INFO("Byte %i: %x", i, input[i]);
-         if(input[0] == 0x07) {
-             if(input[1] == gripper_id) {
-                 if(input[3] == 0x92)
-                 {
-                     if((input[4] == 0x4f) && (input[5] == 0x4f))
-                     {
-                         std::cout << "Referencing..." << std::cout;
-                         return(true);
-                     }
-                 }
-                 else
-                 {
-                     std::cout << "PG70 WARN: Not get_state response" << std::endl;
-                     return(false);
-                 }
-             }
-             else
-             {
-                 std::cout << "PG70 WARN: Wrong module id number" << std::endl;
-                 return(false);
-             }
-         }
-         else
-         {
-             std::cout << "PG70 WARN: Not 'slave -> master' package" << std::endl;
-             return(false);
-         }
-     }
-     else
-     {
-         std::cout <<"PG70 WARN: No response recieved" << std::endl;
-         return(false);
-     }
-
-
-
 }
 
-void
-PG70_serial::set_position(serial::Serial *port, int position, int velocity, int acceleration)
+float
+PG70_serial::set_position(serial::Serial *port, int goal_position, int velocity, int acceleration)
 {
 
     std::vector<uint8_t> output;
-    output.push_back(0x05);                                         //message from master to module
-    output.push_back(gripper_id);                                   //module id
-    output.push_back(0x0D);                                         //D-Len
-    output.push_back(0xb0);                                         //Command mov pos
+    output.push_back(0x05);                //message from master to module
+    output.push_back(gripper_id);          //module id
+    output.push_back(0x0D);                //D-Len
+    output.push_back(0xb0);                //Command mov pos
+
     //Position <0-69>mm
-    output.push_back( ieee754_position_tbl[position] & 0x000000ff);         //Position first byte
-    output.push_back((ieee754_position_tbl[position] & 0x0000ff00) >> 8);   //Position second byte
-    output.push_back((ieee754_position_tbl[position] & 0x00ff0000) >> 16);  //Position third byte
-    output.push_back((ieee754_position_tbl[position] & 0xff000000) >> 24);  //Position fourth byte
+    unsigned int IEEE754_bytes[4];
+    float_to_IEEE_754(goal_position,IEEE754_bytes);
+
+    output.push_back(IEEE754_bytes[0]);    //Position first byte
+    output.push_back(IEEE754_bytes[1]);    //Position second byte
+    output.push_back(IEEE754_bytes[2]);    //Position third byte
+    output.push_back(IEEE754_bytes[3]);    //Position fourth byte
 
     //Velocity<0-82>mm/s
-    output.push_back( ieee754_velocity_tbl[velocity] & 0x000000ff);         //Velocity first byte
-    output.push_back((ieee754_velocity_tbl[velocity] & 0x0000ff00) >> 8);   //Velocity second byte
-    output.push_back((ieee754_velocity_tbl[velocity] & 0x00ff0000) >> 16);  //Velocity third byte
-    output.push_back((ieee754_velocity_tbl[velocity] & 0xff000000) >> 24);  //Velocity fourth byte
+    float_to_IEEE_754(velocity, IEEE754_bytes);
+    output.push_back(IEEE754_bytes[0]);    //Velocity first byte
+    output.push_back(IEEE754_bytes[1]);    //Velocity second byte
+    output.push_back(IEEE754_bytes[2]);    //Velocity third byte
+    output.push_back(IEEE754_bytes[3]);    //Velocity fourth byte
 
     //Acceleration<0-320>mm/s2
-    output.push_back( ieee754_acceleration_tbl[acceleration/10] & 0x000000ff);         //Acceleration first byte
-    output.push_back((ieee754_acceleration_tbl[acceleration/10] & 0x0000ff00) >> 8);   //Acceleration second byte
-    output.push_back((ieee754_acceleration_tbl[acceleration/10] & 0x00ff0000) >> 16);  //Acceleration third byte
-    output.push_back((ieee754_acceleration_tbl[acceleration/10] & 0xff000000) >> 24);  //Acceleration fourth byte
+    float_to_IEEE_754(acceleration, IEEE754_bytes);
+    output.push_back(IEEE754_bytes[0]);    //Acceleration first byte
+    output.push_back(IEEE754_bytes[1]);    //Acceleration second byte
+    output.push_back(IEEE754_bytes[2]);    //Acceleration third byte
+    output.push_back(IEEE754_bytes[3]);    //Acceleration fourth byte
+
+    //Checksum calculation
+    uint16_t crc = 0;
+
+    for(size_t i = 0; i < output.size(); i++)
+       crc = CRC16(crc,output[i]);
+
+    //Add checksum to the output buffer
+    output.push_back(crc & 0x00ff);
+    output.push_back((crc & 0xff00) >> 8);
+
+    //Send message to the module
+    port->flushInput();
+    port->write(output);
+
+    //Read module response
+    bool position_reached = false;
+    std::vector<uint8_t> input;
+
+    while(position_reached == false)
+    {
+        //std::cout << "PG70 INFO: Reading current position..." << std::endl;
+        port->read(input,512);
+
+        for(size_t i = 0; i < input.size(); i++)
+            if((input[i] == 0x05) && (input[i+1] == 0x94))
+            {
+                position_reached = true;
+                uint8_t raw[4] = {input[i+5], input[i+4], input[i+3], input[i+2]};
+                act_position = IEEE_754_to_float(raw);
+                std::cout << "PG70 INFO: Reached position: " << act_position << " [mm]" << std::endl;
+                return act_position;
+             }
+             ros::Duration(0.1).sleep();
+       }
+}
+
+uint8_t
+PG70_serial::get_error(serial::Serial *port)
+{
+    std::cout << "Reading current module state..." << std::endl;
+    std::vector<uint8_t> output;
+    output.push_back(0x05);                 //message from master to module
+    output.push_back(gripper_id);           //module id
+    output.push_back(0x06);                 //D-Len
+    output.push_back(0x95);                 //Command get state
+    output.push_back(0x00);
+    output.push_back(0x00);
+    output.push_back(0x00);
+    output.push_back(0x00);
+    output.push_back(0x01);
+
+    //Checksum calculation
+    uint16_t crc = 0;
+
+    for(size_t i = 0; i < output.size(); i++)
+       crc = CRC16(crc,output[i]);
+
+    //Add checksum to the output buffer
+    output.push_back(crc & 0x00ff);
+    output.push_back((crc & 0xff00) >> 8);
+
+    //Send message to the module
+    port->write(output);
+    ros::Duration(0.1).sleep();
+
+    //Read response
+    std::vector<uint8_t> input;
+    port->read(input, 512);
+
+    //Process current state message
+    int get_state_index = 0;
+    if(input.size() > 0)
+    {
+       if(input.size() > 7)
+       {
+          for(size_t i = 0; i < input.size(); i++)
+              if ((input[i] == 0x07) && (input[i+1] == 0x95)) get_state_index = i;
+
+              int pg70_error = input[get_state_index + 7];
+
+              switch (pg70_error)
+              {
+                  case 0x00: std::cout << "PG70 INFO: No error detected" << std::endl; break;
+                  case 0xC8: std::cout << "PG70 INFO: Error: 0xC8 detected: Wrong ramp type" << std::endl; break;
+                  case 0xD2: std::cout << "PG70 INFO: Error: 0xD2 detected: Config memory" << std::endl; break;
+                  case 0xD3: std::cout << "PG70 INFO: Error: 0xD3 detected: Program memory" << std::endl; break;
+                  case 0xD4: std::cout << "PG70 INFO: Error: 0xD4 detected: Invalid phrase" << std::endl; break;
+                  case 0xD5: std::cout << "PG70 INFO: Error: 0xD5 detected: Soft low" << std::endl; break;
+                  case 0xD6: std::cout << "PG70 INFO: Error: 0xD6 detected: Soft high" << std::endl; break;
+                  case 0xD7: std::cout << "PG70 INFO: Error: 0xD7 detected: Pressure" << std::endl; break;
+                  case 0xD8: std::cout << "PG70 INFO: Error: 0xD8 detected: Service required" << std::endl; break;
+                  case 0xD9: std::cout << "PG70 INFO: Error: 0xD9 detected: Emergency stop" << std::endl; break;
+                  case 0xDA: std::cout << "PG70 INFO: Error: 0xDA detected: Tow" << std::endl; break;
+                  case 0xE4: std::cout << "PG70 INFO: Error: 0xE4 detected: Too fast" << std::endl; break;
+                  case 0xEC: std::cout << "PG70 INFO: Error: 0xEC detected: Math error" << std::endl; break;
+                  case 0xDB: std::cout << "PG70 INFO: Error: 0xDB detected: VPC3" << std::endl; break;
+                  case 0xDC: std::cout << "PG70 INFO: Error: 0xDC detected: Fragmentation" << std::endl; break;
+                  case 0xDE: std::cout << "PG70 INFO: Error: 0xDE detected: Current" << std::endl; break;
+                  case 0xDF: std::cout << "PG70 INFO: Error: 0xDF detected: I2T" << std::endl; break;
+                  case 0xE0: std::cout << "PG70 INFO: Error: 0xE0 detected: Initialize" << std::endl; break;
+                  case 0xE1: std::cout << "PG70 INFO: Error: 0xE1 detected: Internal" << std::endl; break;
+                  case 0xE2: std::cout << "PG70 INFO: Error: 0xE2 detected: Hard low" << std::endl; break;
+                  case 0xE3: std::cout << "PG70 INFO: Error: 0xE3 detected: Hard high" << std::endl; break;
+                  case 0x70: std::cout << "PG70 INFO: Error: 0x70 detected: Temp low" << std::endl; break;
+                  case 0x71: std::cout << "PG70 INFO: Error: 0x71 detected: Temp high" << std::endl; break;
+                  case 0x72: std::cout << "PG70 INFO: Error: 0x72 detected: Logic low" << std::endl; break;
+                  case 0x73: std::cout << "PG70 INFO: Error: 0x73 detected: Logic high" << std::endl; break;
+                  case 0x74: std::cout << "PG70 INFO: Error: 0x74 detected: Motor voltage low" << std::endl; break;
+                  case 0x75: std::cout << "PG70 INFO: Error: 0x75 detected: Motor voltage high" << std::endl; break;
+                  case 0x76: std::cout << "PG70 INFO: Error: 0x76 detected: Cable break" << std::endl; break;
+                  case 0x78: std::cout << "PG70 INFO: Error: 0x78 detected: Motor temp " << std::endl; break;
+               }
+            return((uint8_t)pg70_error);
+            }
+            else
+            {
+                return(0xff) ;
+            }
+         }
+
+}
+
+float
+PG70_serial::get_position(serial::Serial *port)
+{
+    std::cout << "PG70 INFO: Reading current module position..." << std::endl;
+    std::vector<uint8_t> output;
+    output.push_back(0x05);                 //message from master to module
+    output.push_back(gripper_id);           //module id
+    output.push_back(0x06);                 //D-Len
+    output.push_back(0x95);                 //Command get state
+    output.push_back(0x00);
+    output.push_back(0x00);
+    output.push_back(0x00);
+    output.push_back(0x00);
+    output.push_back(0x01);
+
+    //Checksum calculation
+    uint16_t crc = 0;
+
+    for(size_t i = 0; i < output.size(); i++)
+       crc = CRC16(crc,output[i]);
+
+    //Add checksum to the output buffer
+    output.push_back(crc & 0x00ff);
+    output.push_back((crc & 0xff00) >> 8);
+
+    //Send message to the module
+    port->write(output);
+    ros::Duration(0.1).sleep();
+
+    std::vector<uint8_t> input;
+    port->read(input, 12);
+
+    //Detect reached position response
+    float act_position;
+
+    if(input.size() > 0)
+    {
+        for(size_t i = 0; i < input.size(); i++)
+        {
+            if((input[i] == 0x07) && (input[i+1] == 0x95))
+            {
+                  uint8_t raw[4] = {input[i+5], input[i+4], input[i+3], input[i+2]};
+                  act_position = IEEE_754_to_float(raw);
+                  std::cout << "PG70 INFO: Actual position: " << act_position << " [mm]" << std::endl;
+                  return(act_position);
+            }
+            else if  ((input[i] == 0x05) && (input[i+1] == 0x94))
+            {
+                  uint8_t raw[4] = {input[i+5], input[i+4], input[i+3], input[i+2]};
+                  act_position = IEEE_754_to_float(raw);
+                  std::cout << "PG70 INFO: Actual position: " << act_position << " [mm]" << std::endl;
+                  return(act_position);
+            }
+        }
+    }
+}
+
+void
+PG70_serial::stop(serial::Serial *port)
+{
+    std::vector<uint8_t> output;
+    output.push_back(0x05);                                         //message from master to module
+    output.push_back(gripper_id);                                   //module id
+    output.push_back(0x01);                                         //D-Len
+    output.push_back(0x91);                                         //Command stop
+
+    //Checksum calculation
+    uint16_t crc = 0;
+
+    for(size_t i = 0; i < output.size(); i++)
+       crc = CRC16(crc,output[i]);
+
+    //Add checksum to the output buffer
+    output.push_back(crc & 0x00ff);
+    output.push_back((crc & 0xff00) >> 8);
+
+    //Send message to the module
+    port->write(output);
+}
+
+void
+PG70_serial::acknowledge_error(serial::Serial *port)
+{
+    std::vector<uint8_t> output;
+    output.push_back(0x05);                                         //message from master to module
+    output.push_back(gripper_id);                                   //module id
+    output.push_back(0x01);                                         //D-Len
+    output.push_back(0x8b);                                         //Command cmd ack
 
     //Checksum calculation
     uint16_t crc = 0;
@@ -227,62 +356,11 @@ PG70_serial::set_position(serial::Serial *port, int position, int velocity, int 
     //Send message to the module
     port->write(output);
 
-    //Console output (DEBUG purposes)
-    std::cout << "Output: " << std::endl;
-    for(size_t i=0; i < output.size(); i++)
-        ROS_INFO("Byte %i: %x", i, output[i]);
-\
 }
 
-int
-PG70_serial::get_state(serial::Serial *port)
-{
-    std::vector<uint8_t> output;
-    output.push_back(0x05);                 //message from master to module
-    output.push_back(gripper_id);           //module id
-    output.push_back(0x01);                 //D-Len
-    output.push_back(0x95);                 //Command get state
-
-    //Checksum calculation
-    uint16_t crc = 0;
-
-    for(size_t i = 0; i < output.size(); i++)
-       crc = CRC16(crc,output[i]);
-
-    //Add checksum to the output buffer
-    output.push_back(crc & 0x00ff);
-    output.push_back((crc & 0xff00) >> 8);
-
-    //Clear input buffer and send get_state message to the module
-    port->flushInput();
-    port->write(output);
-
-   //Read and process current state message
-    std::vector<uint8_t> input;
-    ros::Duration(0.2).sleep();
-    port->read(input,20);
-
-    if(input.size() > 0){
-        std::cout << "PG70 INFO: Response Recieved " << std::endl;
-        for(size_t i = 0; i < input.size(); i++)
-            ROS_INFO("Byte %i: %x", i, input[i]);
-        if(input[0] == 0x07) {
-            if(input[1] == gripper_id) {
-                if(input[3] == 0x95)
-                {
-                    uint32_t position;
-                    position = (input[7] << 24) | ((input[6] & 0xf0) << 16);         //Merge 2 most significant position bytes to single variable
-                    for(size_t i = 0; i <= 70; i++)                                  //Lookup real position in IEEE754 table
-                      if(position == ieee754_position_tbl[i]) return(i+1);           //return index corresponding to position in mm
-                }
-                else std::cout << "PG70 WARN: Not get_state response" << std::endl;
-            }
-            else std::cout << "PG70 WARN: Wrong module id number" << std::endl;
-        }
-        else std::cout << "PG70 WARN: Not 'slave -> master' package" << std::endl;
-    }
-    else std::cout <<"PG70 WARN: No response recieved" << std::endl;
-}
+/////////////////////////////////////////////////////////////
+//CALLBACKS
+/////////////////////////////////////////////////////////////
 
 bool
 PG70_serial::reference_callback(pg70::reference::Request &req,
@@ -290,9 +368,13 @@ PG70_serial::reference_callback(pg70::reference::Request &req,
 {
     std::cout << "PG70 INFO: Reference Cmd recieved " << std::endl;
     if(req.reference_request== true)
-        res.reference_response = reference(com_port);
+    {
+        reference(com_port);
+        ros::Duration(15).sleep();
+        res.reference_response = get_position(com_port);
+    }
     else
-        res.reference_response = false;
+        res.reference_response = -1;
 }
 
 
@@ -303,14 +385,14 @@ PG70_serial::set_position_callback(pg70::set_position::Request &req,
     std::cout << "PG70 INFO: Set position Cmd recieved" << std::endl;
 
     //Check if goal request respects gripper limits <0-70> mm
-    if ((req.goal_position > 0) && (req.goal_position < 70))
+    if ((req.goal_position > 0) && (req.goal_position < 69))
     {
         if((req.goal_velocity > 0) && (req.goal_velocity < 83))
         {
             if((req.goal_acceleration > 0) && (req.goal_acceleration <= 320))
             {
                 std::cout << "PG70 INFO: Goal accepted " << std::endl;
-                set_position(com_port,req.goal_position, req.goal_velocity, req.goal_acceleration);
+                act_position = set_position(com_port,req.goal_position, req.goal_velocity, req.goal_acceleration);
                 res.goal_accepted = true;
             }
             else
@@ -331,14 +413,26 @@ PG70_serial::set_position_callback(pg70::set_position::Request &req,
          res.goal_accepted = false;
     }
 }
+
 bool
-PG70_serial::get_state_callback(pg70::get_state::Request &req,
-                                pg70::get_state::Response &res)
+PG70_serial::get_position_callback(pg70::get_position::Request &req,
+                                   pg70::get_position::Response &res)
+{
+    std::cout << "EZN64 INFO: Get position request recieved" << std::endl;
+    if (req.get_position_request == true)
+        res.actual_position = get_position(com_port);
+    else
+        res.actual_position = -1;
+}
+
+
+bool
+PG70_serial::get_error_callback(pg70::get_error::Request &req,
+                                pg70::get_error::Response &res)
 {
     std::cout << "PG70 INFO: Get state request recieved" << std::endl;
-    if (req.get_state_request == true)
-        res.actual_position = get_state(com_port);
-
+    if (req.get_error_request == true)
+        res.error_code = get_error(com_port);
 }
 
 bool
@@ -347,10 +441,16 @@ PG70_serial::acknowledge_error_callback(pg70::acknowledge_error::Request &req,
 {
     std::cout << "PG70 INFO: Cmd Acknowledge error recieved" << std::endl;
     if(req.acknowledge_request == true)
-       res.acknowledge_response = acknowledge_error(com_port);
+    {
+       acknowledge_error(com_port);
+       ros::Duration(1).sleep();
+       if(get_error(com_port) == 0x00)
+           res.acknowledge_response = true;
+       else
+           res.acknowledge_response = false;
+    }
     else
         res.acknowledge_response = false;
-
 }
 
 bool
@@ -359,98 +459,44 @@ PG70_serial::stop_callback(pg70::stop::Request &req,
 {
     std::cout << "PG70 INFO: Cmd Stop recieved" << std::endl;
     if(req.stop_request == true)
-        res.stop_result = stop(com_port);
+    {
+        stop(com_port);
+        ros::Duration(1).sleep();
+        res.stop_result = get_position(com_port);
+    }
     else
-        res.stop_result = false;
+        res.stop_result = -1;
 }
 
-bool
-PG70_serial::stop(serial::Serial *port)
+////////////////////////////////////////////////////
+//ADDITIONAL FUNCTIONS
+////////////////////////////////////////////////////
+
+float
+PG70_serial::IEEE_754_to_float(uint8_t *raw)
 {
-    std::vector<uint8_t> output;
-    output.push_back(0x05);                                         //message from master to module
-    output.push_back(gripper_id);                                   //module id
-    output.push_back(0x01);                                         //D-Len
-    output.push_back(0x91);                                         //Command stop
+        int sign = (raw[0] >> 7) ? -1 : 1;
 
-    //Checksum calculation
-    uint16_t crc = 0;
+        int8_t exponent = (raw[0] << 1) + (raw[1] >> 7) - 126;
 
-    for(size_t i = 0; i < output.size(); i++)
-       crc = CRC16(crc,output[i]);
+        uint32_t fraction_bits = ((raw[1] & 0x7F) << 16) + (raw[2] << 8) + raw[3];
 
-    //Add checksum to the output buffer
-    output.push_back(crc & 0x00ff);
-    output.push_back((crc & 0xff00) >> 8);
+        float fraction = 0.5f;
+        for (uint8_t ii = 0; ii < 24; ++ii)
+                fraction += ldexpf((fraction_bits >> (23 - ii)) & 1, -(ii + 1));
 
-    //Clear input buffer and send message to the module
-    port->flushInput();
-    port->write(output);
+        float significand = sign * fraction;
 
-    //Read and process response
-    std::vector<uint8_t> input;
-    port->read(input,7);
-
-    if(input[0] == 0x07) {
-        if(input[1] == gripper_id) {
-            if(input[3] == 0x91) {
-                if((input[4] == 0x4B) && (input[5] == 0x4b)){
-                    std::cout << "PG70 INFO: Stop movement successfull " << std::endl;
-                    return(true);
-                }
-                else{
-                    std::cout << "PG70 WARN: Stop movement not successfull " << std::endl;
-                    return(false);
-                }
-
-            }
-            else std::cout << "PG70 WARN: Not stop cmd response" << std::endl;
-        }
-        else std::cout << "PG70 WARN: Wrong module id number in response" << std::endl;
-    }
-    else std::cout << "PG70 WARN: Not slave -> master package" << std::endl;
+        return ldexpf(significand, exponent);
 }
 
-bool
-PG70_serial::acknowledge_error(serial::Serial *port)
+void
+PG70_serial::float_to_IEEE_754(float position, unsigned int *output_array)
 {
-    std::vector<uint8_t> output;
-    output.push_back(0x05);                                         //message from master to module
-    output.push_back(gripper_id);                                   //module id
-    output.push_back(0x01);                                         //D-Len
-    output.push_back(0x8b);                                         //Command cmd ack
+    unsigned char *p_byte = (unsigned char*)(&position);
 
-    //Checksum calculation
-    uint16_t crc = 0;
-
-    for(size_t i = 0; i < output.size(); i++)
-       crc = CRC16(crc,output[i]);
-
-    //Add checksum to the output buffer
-    output.push_back(crc & 0x00ff);
-    output.push_back((crc & 0xff00) >> 8);
-
-    //Clear input buffer and send message to the module
-    port->flushInput();
-    port->write(output);
-
-    //Read and process response
-    std::vector<uint8_t> input;
-    port->read(input,8);
-
-    if(input[0] == 0x07) {
-        if(input[1] == gripper_id) {
-            if(input[3] == 0x8b)
-            {
-                if ((input[4] == 0x4f) && (input[5] == 0x4f)) return(true);
-                else return(false);
-            }
-            else std::cout << "PG70 WARN: Not cmd_ack response" << std::endl;
-        }
-        else std::cout << "PG70 WARN: Wrong module id number in response" << std::endl;
-    }
-    else std::cout << "PG70 WARN: Not slave -> master package" << std::endl;
-
+    for(size_t i = 0; i < sizeof(float); i++)
+        output_array[i] = (static_cast<unsigned int>(p_byte[i]));
 }
 
 
