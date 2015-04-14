@@ -35,18 +35,15 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define EZN64_USB_CONTROL_H
 
 #include <ros/ros.h>
-#include <serial/serial.h>
 #include <libusb.h>
 
 //Service headers
 #include <ezn64/reference.h>
 #include <ezn64/set_position.h>
-#include <ezn64/get_state.h>
+#include <ezn64/get_error.h>
 #include <ezn64/get_position.h>
 #include <ezn64/acknowledge_error.h>
 #include <ezn64/stop.h>
-
-
 
 class EZN64_usb
 {
@@ -54,13 +51,13 @@ public:
     explicit EZN64_usb(ros::NodeHandle *nh);
     ~EZN64_usb();
 
-     int reference(libusb_device_handle *handle);
+     //Gripper commands
      float set_position(libusb_device_handle *handle, float goal_position, float act_position);
-     uint8_t get_state(libusb_device_handle *handle);
      float get_position(libusb_device_handle *handle);
-     int stop(libusb_device_handle *handle);
-     int acknowledge_error(libusb_device_handle *handle);
-
+     uint8_t get_error(libusb_device_handle *handle);
+     void stop(libusb_device_handle *handle);
+     void acknowledge_error(libusb_device_handle *handle);
+     void reference(libusb_device_handle *handle);
 
      //Service callbacks
      bool reference_callback(ezn64::reference::Request &req,
@@ -69,8 +66,8 @@ public:
      bool set_position_callback(ezn64::set_position::Request &req,
                                 ezn64::set_position::Response &res);
 
-     bool get_state_callback(ezn64::get_state::Request &req,
-                             ezn64::get_state::Response &res);
+     bool get_error_callback(ezn64::get_error::Request &req,
+                             ezn64::get_error::Response &res);
 
      bool get_position_callback(ezn64::get_position::Request &req,
                                 ezn64::get_position::Response &res);
@@ -105,11 +102,6 @@ private:
     libusb_device *ezn64_dev;
     libusb_context *usb_context;
     libusb_device_handle *ezn64_handle;
-
-
-
-
-
 
 };
 
