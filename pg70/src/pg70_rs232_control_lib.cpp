@@ -47,25 +47,21 @@ PG70_serial::PG70_serial(ros::NodeHandle *nh) :
 
     //Initialize and open serial port
     com_port = new serial::Serial (portname, (uint32_t)baudrate, serial::Timeout::simpleTimeout(100));
-
     if (com_port->isOpen()) std::cout << "PG70 INFO: Serial port " << portname << " openned successfully" << std::endl;
     else                    std::cout << "PG70 ERROR: Serial port " << portname<< " not opened" << std::endl;
 
-    pg70_error = get_error(com_port);
+    //Get initial state and discard input buffer
+    while(pg70_error == 0xff)
+    {
+        pg70_error = get_error(com_port);
+        ros::Duration(0.5).sleep();
+    }
 
     while(act_position == -1)
     {
         act_position = get_position(com_port);
         ros::Duration(0.5).sleep();
     }
-
- /*   set_position(com_port, 20,60,100);
-    ros::Duration(5).sleep();
-
-    int temp_position;
-    temp_position = get_state(com_port);
-    std::cout << "Current position: " << temp_position << std::endl;
-*/
 }
 
 
@@ -284,7 +280,7 @@ PG70_serial::get_position(serial::Serial *port)
     ros::Duration(0.1).sleep();
 
     std::vector<uint8_t> input;
-    port->read(input, 12);
+    port->read(input, 512);
 
     //Detect reached position response
     float act_position;
@@ -385,7 +381,7 @@ PG70_serial::set_position_callback(pg70::set_position::Request &req,
     std::cout << "PG70 INFO: Set position Cmd recieved" << std::endl;
 
     //Check if goal request respects gripper limits <0-70> mm
-    if ((req.goal_position > 0) && (req.goal_position < 69))
+    if ((req.goal_position >= 0) && (req.goal_position < 69))
     {
         if((req.goal_velocity > 0) && (req.goal_velocity < 83))
         {
