@@ -1,0 +1,113 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro">
+  
+    <xacro:macro name="schunk_ezn64" params="parent name *origin ">
+      
+<!--       PALM -->
+      
+      <joint name="${name}_palm_joint" type="fixed" >
+	<parent link="${parent}" />
+	<child link="${name}_palm_link" />
+	<xacro:insert_block name="origin" />
+      </joint> 
+      
+      <link name="${name}_palm_link">
+	  <visual>
+             <geometry>
+                <mesh filename="package://ezn64/meshes/ezn64_palm_link.STL" />
+             </geometry>
+             <material name="silver">
+                <color rgba="0.8 0.8 0.8 1"/>
+             </material>
+	  </visual>
+	  <collision>
+            <geometry>
+               <mesh filename="package://ezn64/meshes/ezn64_palm_link.STL" />
+	    </geometry>
+	    <material name="black">
+	      <color rgba="0 0 0 1" />
+	    </material>
+	  </collision>
+      </link> 
+      
+<!--       FINGER 1 -->
+      
+      <joint name="${name}_finger_1_joint" type="prismatic" >
+	<parent link="${name}_palm_link" />
+	<child link="${name}_finger_1_link" />
+	<limit effort="0" lower="0" upper="0.006" velocity="0"/>
+	<origin xyz="-0.01501 -0.0086667 0" rpy="-1.5708 0 0" />
+	<axis xyz="0 0 -1" />
+      </joint>
+      
+       <link name="${name}_finger_1_link">
+	<visual>
+	  <geometry>
+	    <mesh filename="package://ezn64/meshes/ezn64_finger_1.STL" />
+	  </geometry>
+	    <material name="black"/>             
+	</visual>
+	<collision>
+	  <geometry>
+	    <mesh filename="package://ezn64/meshes/ezn64_finger_1.STL" />
+	  </geometry>
+	    <material name="black" />
+	</collision>
+      </link>
+      
+<!--       FINGER 2 -->
+      
+      <joint name="${name}_finger_2_joint" type="prismatic" >
+	<mimic joint="${name}_finger_1_joint" multiplier="1" offset="0"/>
+	<parent link="${name}_palm_link" />
+	<child link="${name}_finger_2_link" />
+	<limit effort="0" lower="0" upper="0.006" velocity="0"/>
+	<origin xyz="-0.01501 0.0043333 0.0075056" rpy="1.0472 0 0" />
+	<axis xyz="0 1 0" />
+      </joint>
+      
+       <link name="${name}_finger_2_link">
+	<visual>
+	  <geometry>
+	    <mesh filename="package://ezn64/meshes/ezn64_finger_2.STL" />
+	  </geometry>
+	    <material name="black"/>             
+	</visual>
+	<collision>
+	  <geometry>
+	    <mesh filename="package://ezn64/meshes/ezn64_finger_2.STL" />
+	  </geometry>
+	    <material name="black" />
+	</collision>
+      </link>
+      
+    
+<!--       FINGER 3 -->
+      
+      <joint name="${name}_finger_3_joint" type="prismatic" >
+	<mimic joint="${name}_finger_1_joint" multiplier="1" offset="0"/>
+	<parent link="${name}_palm_link" />
+	<child link="${name}_finger_3_link" />
+	<limit effort="0" lower="0" upper="0.006" velocity="0"/>
+	<origin xyz="-0.01501 0.0043333 -0.0075056" rpy="-2.618 0 0" />
+	<axis xyz="0 0 1" />
+      </joint>
+      
+       <link name="${name}_finger_3_link">
+	<visual>
+	  <geometry>
+	    <mesh filename="package://ezn64/meshes/ezn64_finger_3.STL" />
+	  </geometry>
+	    <material name="black"/>             
+	</visual>
+	<collision>
+	  <geometry>
+	    <mesh filename="package://ezn64/meshes/ezn64_finger_3.STL" />
+	  </geometry>
+	    <material name="black" />
+	</collision>
+      </link>
+    
+      </xacro:macro>
+ </robot>
+          
