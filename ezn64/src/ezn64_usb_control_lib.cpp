@@ -86,21 +86,35 @@ EZN64_usb::reference(libusb_device_handle *handle)
 }
 
 float
-EZN64_usb::set_position(libusb_device_handle *handle, float goal_position, float act_position)
+EZN64_usb::set_position(libusb_device_handle *handle, float goal_position, float velocity, float acceleration, float act_position)
 {
     std::cout << "EZN64 IFNO: Moving from: " << act_position << " [mm] to " << goal_position << " [mm]" << std::endl;
 
     std::vector<uint8_t> output;
-    output.push_back(0x05);                                         //D-Len
-    output.push_back(0xb0);                                         //Command mov pos
+    output.push_back(0x0D);                //D-Len
+    output.push_back(0xb0);                //Command mov pos
 
-    unsigned int IEEE754_bytes[4];                                  //Convert float to IEEE754
+    unsigned int IEEE754_bytes[4];
     float_to_IEEE_754(goal_position, IEEE754_bytes);
 
-    output.push_back(IEEE754_bytes[0]);
-    output.push_back(IEEE754_bytes[1]);
-    output.push_back(IEEE754_bytes[2]);
-    output.push_back(IEEE754_bytes[3]);
+    output.push_back(IEEE754_bytes[0]);    //Position first byte
+    output.push_back(IEEE754_bytes[1]);    //Position second byte
+    output.push_back(IEEE754_bytes[2]);    //Position third byte
+    output.push_back(IEEE754_bytes[3]);    //Position fourth byte
+
+    //Velocity<0-82>mm/s
+    float_to_IEEE_754(velocity, IEEE754_bytes);
+    output.push_back(IEEE754_bytes[0]);    //Velocity first byte
+    output.push_back(IEEE754_bytes[1]);    //Velocity second byte
+    output.push_back(IEEE754_bytes[2]);    //Velocity third byte
+    output.push_back(IEEE754_bytes[3]);    //Velocity fourth byte
+
+    //Acceleration<0-320>mm/s2
+    float_to_IEEE_754(acceleration, IEEE754_bytes);
+    output.push_back(IEEE754_bytes[0]);    //Acceleration first byte
+    output.push_back(IEEE754_bytes[1]);    //Acceleration second byte
+    output.push_back(IEEE754_bytes[2]);    //Acceleration third byte
+    output.push_back(IEEE754_bytes[3]);    //Acceleration fourth byte
 
     //Send message to the module and recieve response
     usb_write(handle, output);
@@ -292,17 +306,33 @@ EZN64_usb::set_position_callback(ezn64::set_position::Request &req,
     std::cout << "EZN64 INFO: Set position Cmd recieved" << std::endl;
 
     //Check if goal request respects gripper limits <0-10> mm
-    if ((req.goal_position >= 0) && (req.goal_position < 12.4))
+    if ((req.goal_position >= 0) && (req.goal_position < 69))
     {
-        std::cout << "EZN64 INFO: Goal accepted " << std::endl;
-        act_position = set_position(ezn64_handle,req.goal_position, act_position);
-        res.goal_accepted = true;
-     }
-     else
-     {
-         std::cout << "EZN64 WARN: Goal position rejected!" << std::endl;
-         res.goal_accepted = false;
-     }
+            if((req.goal_velocity > 0) && (req.goal_velocity < 83))
+            {
+                if((req.goal_acceleration > 0) && (req.goal_acceleration <= 3000))
+                {
+                    std::cout << "EZN64 INFO: Goal accepted " << std::endl;
+                    act_position = set_position(ezn64_handle,req.goal_position,req.goal_velocity, req.goal_acceleration, act_position);
+                    res.goal_accepted = true;
+                }
+                else
+                {
+                    std::cout << "PG70 WARN: Goal acceleration rejected!" << std::endl;
+                    res.goal_accepted = false;
+                }
+            }
+            else
+            {
+                std::cout << "PG70 WARN: Goal velocity rejected!" << std::endl;
+                res.goal_accepted = false;
+            }
+      }
+      else
+      {
+          std::cout << "PG70 WARN: Goal position rejected!" << std::endl;
+          res.goal_accepted = false;
+       }
 }
 
 bool

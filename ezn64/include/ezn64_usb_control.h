@@ -52,7 +52,7 @@ public:
     ~EZN64_usb();
 
      //Gripper commands
-     float set_position(libusb_device_handle *handle, float goal_position, float act_position);
+     float set_position(libusb_device_handle *handle, float goal_position, float velocity, float acceleration, float act_position);
      float get_position(libusb_device_handle *handle);
      uint8_t get_error(libusb_device_handle *handle);
      void stop(libusb_device_handle *handle);
