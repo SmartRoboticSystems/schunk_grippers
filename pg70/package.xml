@@ -2,7 +2,7 @@
 <package>
   <name>pg70</name>
   <version>1.0.0</version>
-  <description> Model and rs232 control node for basic communication with Schunk PG70 gripper </description>
+  <description> Xacro model and rs232 control node for basic communication with Schunk PG70 gripper. Serial package for RS232 is required see http://wiki.ros.org/serial  >  </description>
   
   <maintainer email="durovsky987@gmail.com">durovsky</maintainer>
   
