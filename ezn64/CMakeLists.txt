@@ -7,7 +7,6 @@ include_directories(SYSTEM ${LIBUSB1_INCLUDE_DIRS})
 
 find_package(catkin REQUIRED COMPONENTS
   roscpp
-  serial
   message_generation
 )
 
@@ -38,7 +37,6 @@ catkin_package(
   CATKIN_DEPENDS roscpp 
   LIBRARIES
   roscpp
-  serial
 
 )
 
