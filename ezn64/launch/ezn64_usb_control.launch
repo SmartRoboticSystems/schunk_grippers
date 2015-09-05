@@ -4,9 +4,7 @@
     <rosparam>
       vendor_id: 7358
       product_id: 371
-      gripper_id: 12
-      portname: /dev/ttyS0
-      baudrate: 9600      
+      gripper_id: 10
     </rosparam>  
   </node>
   
