@@ -1,3 +1,2 @@
-bool get_state_request
 ---
 int32 error_code
