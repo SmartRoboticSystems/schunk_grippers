@@ -57,6 +57,7 @@ EZN64_usb::EZN64_usb(ros::NodeHandle *nh) :
        ros::Duration(0.5).sleep();
     }
 
+    
     if(ezn64_error == 0xd9) acknowledge_error(ezn64_handle);
 
     while(act_position == -1)
@@ -86,12 +87,12 @@ EZN64_usb::reference(libusb_device_handle *handle)
 }
 
 float
-EZN64_usb::set_position(libusb_device_handle *handle, float goal_position, float velocity, float acceleration, float act_position)
+EZN64_usb::set_position(libusb_device_handle *handle, float goal_position, float act_position)
 {
     std::cout << "EZN64 IFNO: Moving from: " << act_position << " [mm] to " << goal_position << " [mm]" << std::endl;
 
     std::vector<uint8_t> output;
-    output.push_back(0x0D);                //D-Len
+    output.push_back(0x05);                //D-Len
     output.push_back(0xb0);                //Command mov pos
 
     unsigned int IEEE754_bytes[4];
@@ -102,7 +103,7 @@ EZN64_usb::set_position(libusb_device_handle *handle, float goal_position, float
     output.push_back(IEEE754_bytes[2]);    //Position third byte
     output.push_back(IEEE754_bytes[3]);    //Position fourth byte
 
-    //Velocity<0-82>mm/s
+   /*//Velocity<0-82>mm/s
     float_to_IEEE_754(velocity, IEEE754_bytes);
     output.push_back(IEEE754_bytes[0]);    //Velocity first byte
     output.push_back(IEEE754_bytes[1]);    //Velocity second byte
@@ -115,7 +116,7 @@ EZN64_usb::set_position(libusb_device_handle *handle, float goal_position, float
     output.push_back(IEEE754_bytes[1]);    //Acceleration second byte
     output.push_back(IEEE754_bytes[2]);    //Acceleration third byte
     output.push_back(IEEE754_bytes[3]);    //Acceleration fourth byte
-
+*/
     //Send message to the module and recieve response
     usb_write(handle, output);
 
@@ -136,13 +137,14 @@ EZN64_usb::set_position(libusb_device_handle *handle, float goal_position, float
             }
         ros::Duration(0.1).sleep();
     }
+   
 }
 
 uint8_t
 EZN64_usb::get_error(libusb_device_handle *handle)
 {
     std::vector<uint8_t> output;
-    output.push_back(0x06);                 //D-Len
+    output.push_back(0x06);                 //D-Lengripper_id
     output.push_back(0x95);                 //Command get state
     output.push_back(0x00);
     output.push_back(0x00);
@@ -209,6 +211,7 @@ EZN64_usb::get_error(libusb_device_handle *handle)
             return(0xff) ;
         }
      }
+     output.clear();
 }
 
 float
@@ -254,7 +257,9 @@ EZN64_usb::get_position(libusb_device_handle *handle)
             
        }
     }
+  
 }
+
 
 void
 EZN64_usb::stop(libusb_device_handle *handle)
@@ -288,14 +293,10 @@ EZN64_usb::reference_callback(ezn64::reference::Request &req,
                                  ezn64::reference::Response &res)
 {
     std::cout << "EZN64 INFO: Reference Cmd recieved " << std::endl;
-    if(req.reference_request== true)
-    {
-        reference(ezn64_handle);
-        ros::Duration(3).sleep();
-        res.reference_response = get_position(ezn64_handle);
-    }
-    else
-        res.reference_response = -1;
+    reference(ezn64_handle);
+    ros::Duration(3).sleep();
+    res.reference_response = get_position(ezn64_handle);
+        
 }
 
 
@@ -308,31 +309,14 @@ EZN64_usb::set_position_callback(ezn64::set_position::Request &req,
     //Check if goal request respects gripper limits <0-10> mm
     if ((req.goal_position >= 0) && (req.goal_position < 69))
     {
-            if((req.goal_velocity > 0) && (req.goal_velocity < 83))
-            {
-                if((req.goal_acceleration > 0) && (req.goal_acceleration <= 3000))
-                {
-                    std::cout << "EZN64 INFO: Goal accepted " << std::endl;
-                    act_position = set_position(ezn64_handle,req.goal_position,req.goal_velocity, req.goal_acceleration, act_position);
-                    res.goal_accepted = true;
-                }
-                else
-                {
-                    std::cout << "PG70 WARN: Goal acceleration rejected!" << std::endl;
-                    res.goal_accepted = false;
-                }
-            }
-            else
-            {
-                std::cout << "PG70 WARN: Goal velocity rejected!" << std::endl;
-                res.goal_accepted = false;
-            }
-      }
-      else
-      {
-          std::cout << "PG70 WARN: Goal position rejected!" << std::endl;
-          res.goal_accepted = false;
-       }
+       act_position = set_position(ezn64_handle,req.goal_position, act_position);  
+       res.goal_accepted = true;
+    }
+    else
+    {
+      std::cout << "PG70 WARN: Goal position rejected!" << std::endl;
+      res.goal_accepted = false;
+    }
 }
 
 bool
@@ -340,8 +324,7 @@ EZN64_usb::get_error_callback(ezn64::get_error::Request &req,
                               ezn64::get_error::Response &res)
 {
     std::cout << "EZN64 INFO: Get state request recieved" << std::endl;
-    if (req.get_error_request == true)
-        res.error_code = get_error(ezn64_handle);
+    res.error_code = get_error(ezn64_handle);
 
 }
 
@@ -350,11 +333,8 @@ EZN64_usb::get_position_callback(ezn64::get_position::Request &req,
                                  ezn64::get_position::Response &res)
 {
     std::cout << "EZN64 INFO: Get position request recieved" << std::endl;
-    if (req.get_position_request == true)
-        res.actual_position = get_position(ezn64_handle);
-    else
-        res.actual_position = -1;
-
+    res.actual_position = get_position(ezn64_handle);
+    
 }
 
 bool
@@ -362,17 +342,12 @@ EZN64_usb::acknowledge_error_callback(ezn64::acknowledge_error::Request &req,
                                       ezn64::acknowledge_error::Response &res)
 {
     std::cout << "EZN64 INFO: Cmd Acknowledge error recieved" << std::endl;
-    if(req.acknowledge_request == true)
-    {
-        acknowledge_error(ezn64_handle);
-        ros::Duration(1).sleep();
-        if(get_error(ezn64_handle) == 0x00)
-            res.acknowledge_response = true;
-        else
-            res.acknowledge_response = false;
-    }
+    acknowledge_error(ezn64_handle);
+    ros::Duration(1).sleep();
+    if(get_error(ezn64_handle) == 0x00)
+      res.acknowledge_response = true;
     else
-        res.acknowledge_response = false;
+      res.acknowledge_response = false;   
 }
 
 
@@ -381,14 +356,10 @@ EZN64_usb::stop_callback(ezn64::stop::Request &req,
                          ezn64::stop::Response &res)
 {
     std::cout << "EZN64 INFO: Cmd Stop recieved" << std::endl;
-    if(req.stop_request == true)
-    {
-        stop(ezn64_handle);
-        ros::Duration(1).sleep();
-        res.stop_result = get_position(ezn64_handle);
-    }
-    else
-        res.stop_result = -1;
+    stop(ezn64_handle);
+    ros::Duration(1).sleep();
+    res.stop_result = get_position(ezn64_handle);
+ 
 }
 
 /////////////////////////////////////////////////////////
@@ -490,7 +461,10 @@ EZN64_usb::usb_write(libusb_device_handle *handle, std::vector<uint8_t> output)
    //Convert std::vector<uint8_t> to unsigned char array as requested by libusb API
    unsigned char *data_out = new unsigned char[output.size()];
    for(size_t i = 0; i < output.size(); i++)
-       data_out[i] = output[i];
+   {
+     data_out[i] = output[i];
+     //ROS_INFO("Output: %x", data_out[i]);
+   }
 
    r = libusb_bulk_transfer(handle, 1, data_out, output.size(), &byte_cnt,1000);
    if (byte_cnt == 0) std::cout << "EZN64 ERROR: Write error" << std::endl;
@@ -536,7 +510,7 @@ EZN64_usb::usb_read(libusb_device_handle *handle)
         for(size_t i = 0; i < byte_cnt; i++)
         {
             input.push_back(data_in[i]);
-            //ROS_INFO("Byte: %x", data_in[i]);
+            //ROS_INFO("Input: %x", data_in[i]);
         }
    }
 

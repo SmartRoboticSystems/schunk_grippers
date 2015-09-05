@@ -363,14 +363,10 @@ PG70_serial::reference_callback(pg70::reference::Request &req,
                                 pg70::reference::Response &res)
 {
     std::cout << "PG70 INFO: Reference Cmd recieved " << std::endl;
-    if(req.reference_request== true)
-    {
-        reference(com_port);
-        ros::Duration(15).sleep();
-        res.reference_response = get_position(com_port);
-    }
-    else
-        res.reference_response = -1;
+    reference(com_port);
+    ros::Duration(15).sleep();
+    res.reference_response = get_position(com_port);
+ 
 }
 
 
@@ -414,11 +410,8 @@ bool
 PG70_serial::get_position_callback(pg70::get_position::Request &req,
                                    pg70::get_position::Response &res)
 {
-    std::cout << "EZN64 INFO: Get position request recieved" << std::endl;
-    if (req.get_position_request == true)
-        res.actual_position = get_position(com_port);
-    else
-        res.actual_position = -1;
+   std::cout << "EZN64 INFO: Get position request recieved" << std::endl;
+   res.actual_position = get_position(com_port);   
 }
 
 
@@ -427,8 +420,7 @@ PG70_serial::get_error_callback(pg70::get_error::Request &req,
                                 pg70::get_error::Response &res)
 {
     std::cout << "PG70 INFO: Get state request recieved" << std::endl;
-    if (req.get_error_request == true)
-        res.error_code = get_error(com_port);
+    res.error_code = get_error(com_port);
 }
 
 bool
@@ -436,17 +428,12 @@ PG70_serial::acknowledge_error_callback(pg70::acknowledge_error::Request &req,
                                         pg70::acknowledge_error::Response &res)
 {
     std::cout << "PG70 INFO: Cmd Acknowledge error recieved" << std::endl;
-    if(req.acknowledge_request == true)
-    {
-       acknowledge_error(com_port);
-       ros::Duration(1).sleep();
-       if(get_error(com_port) == 0x00)
-           res.acknowledge_response = true;
-       else
-           res.acknowledge_response = false;
-    }
+    acknowledge_error(com_port);
+    ros::Duration(1).sleep();
+    if(get_error(com_port) == 0x00)
+      res.acknowledge_response = true;
     else
-        res.acknowledge_response = false;
+      res.acknowledge_response = false;
 }
 
 bool
@@ -454,14 +441,10 @@ PG70_serial::stop_callback(pg70::stop::Request &req,
                            pg70::stop::Response &res)
 {
     std::cout << "PG70 INFO: Cmd Stop recieved" << std::endl;
-    if(req.stop_request == true)
-    {
-        stop(com_port);
-        ros::Duration(1).sleep();
-        res.stop_result = get_position(com_port);
-    }
-    else
-        res.stop_result = -1;
+    stop(com_port);
+    ros::Duration(1).sleep();
+    res.stop_result = get_position(com_port);
+        
 }
 
 ////////////////////////////////////////////////////
