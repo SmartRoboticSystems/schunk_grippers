@@ -4,8 +4,8 @@ Schunk_PG70 and Schunk_EZN64 gripper models and communication nodes (RS232, USB)
 ##PG70 package
 - uses [ROS serial library](http://wiki.ros.org/serial) package to interface pg70 controller over serial port
 - provides **ROS services** for basic gripper control (get_position, set_position, reference, get_error, acknowledge_error, stop) 
-- allow user to set goal position with velocity and acceleration
-- include **Xacro model** for easier integration with various robots
+- allows user to set goal position with velocity and acceleration
+- includes **Xacro model** for easier integration with various robots
 - automatically reads and broadcasts actual gripper position to **tf**
 
 ##EZN64 package
