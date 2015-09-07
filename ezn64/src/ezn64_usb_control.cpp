@@ -33,6 +33,9 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 * *********************************************************************************************/
 
 #include <ezn64_usb_control.h>
+
+static const double READ_INPUT_BUFFER_PERIOD = 0.1;
+
 int 
 main(int argc, char *argv[])
 {
@@ -41,13 +44,16 @@ main(int argc, char *argv[])
 
     EZN64_usb gripper(&nh);
 
-    ros::ServiceServer reference_service         = nh.advertiseService("ezn64/reference", &EZN64_usb::reference_callback, &gripper);
-    ros::ServiceServer set_position_service      = nh.advertiseService("ezn64/set_position", &EZN64_usb::set_position_callback, &gripper);
-    ros::ServiceServer get_error_service         = nh.advertiseService("ezn64/get_error", &EZN64_usb::get_error_callback, &gripper);
-    ros::ServiceServer get_position_service      = nh.advertiseService("ezn64/get_position", &EZN64_usb::get_position_callback, &gripper);
-    ros::ServiceServer acknowledge_error_service = nh.advertiseService("ezn64/acknowledge_error", &EZN64_usb::acknowledge_error_callback, &gripper);
-    ros::ServiceServer stop_service              = nh.advertiseService("ezn64/stop", &EZN64_usb::stop_callback, &gripper);
+    ros::ServiceServer reference_service         = nh.advertiseService("ezn64/reference", &EZN64_usb::referenceCallback, &gripper);
+    ros::ServiceServer set_position_service      = nh.advertiseService("ezn64/set_position", &EZN64_usb::setPositionCallback, &gripper);
+    ros::ServiceServer get_error_service         = nh.advertiseService("ezn64/get_error", &EZN64_usb::getErrorCallback, &gripper);
+    ros::ServiceServer get_position_service      = nh.advertiseService("ezn64/get_position", &EZN64_usb::getPositionCallback, &gripper);
+    ros::ServiceServer acknowledge_error_service = nh.advertiseService("ezn64/acknowledge_error", &EZN64_usb::acknowledgeErrorCallback, &gripper);
+    ros::ServiceServer stop_service              = nh.advertiseService("ezn64/stop", &EZN64_usb::stopCallback, &gripper);
 
+    gripper.joint_pub = nh.advertise<sensor_msgs::JointState>("joint_states", 1); 
+    ros::Timer timer = nh.createTimer(ros::Duration(READ_INPUT_BUFFER_PERIOD), &EZN64_usb::timerCallback, &gripper);
+    
     ros::spin();
 
     return(EXIT_SUCCESS);

@@ -37,46 +37,41 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <ezn64_usb_control.h>
 
 EZN64_usb::EZN64_usb(ros::NodeHandle *nh) :
-    act_position(-1),
-    ezn64_error(0xff)
+    act_position_(-1),
+    ezn64_error_(0xff)
 {
     //Read launch file params
-    nh->getParam("ezn64/gripper_id", gripper_id);
-    nh->getParam("ezn64/vendor_id", vendor_id);
-    nh->getParam("ezn64/product_id", product_id);
+    nh->getParam("ezn64/gripper_id", gripper_id_);
+    nh->getParam("ezn64/vendor_id",  vendor_id_);
+    nh->getParam("ezn64/product_id", product_id_);
 
     //Initialize USB and look for Schunk EZN64 controller
-    ezn64_dev = find_ezn64_dev(vendor_id, product_id);
-    print_libusb_dev(ezn64_dev);
-    ezn64_handle = open_ezn64_dev(ezn64_dev);
+    ezn64_dev_ = find_ezn64_dev(vendor_id_, product_id_);
+    print_libusb_dev(ezn64_dev_);
+    ezn64_handle_ = open_ezn64_dev(ezn64_dev_);
 
     //Get initial state and discard input buffer
-    while (ezn64_error == 0xff)
+    while (ezn64_error_ == 0xff)
     {
-       ezn64_error = get_error(ezn64_handle);
+       ezn64_error_ = getError(ezn64_handle_);
        ros::Duration(0.5).sleep();
     }
-
     
-    if(ezn64_error == 0xd9) acknowledge_error(ezn64_handle);
-
-    while(act_position == -1)
-    {
-       act_position = get_position(ezn64_handle);
-       ros::Duration(0.5).sleep();
-    }
-
+    if(ezn64_error_ == 0xd9) acknowledgeError(ezn64_handle_);
+  
+    //Start periodic position reading
+    getPosition(ezn64_handle_);
 }
 
 EZN64_usb::~EZN64_usb()
 {
-      close_ezn64_dev(ezn64_handle, usb_context);
+      close_ezn64_dev(ezn64_handle_, usb_context_);
 }
 
 void
 EZN64_usb::reference(libusb_device_handle *handle)
 {
-    std::cout << "EZN64 INFO: Referencing" << std::endl;
+    ROS_INFO("EZN64: Referencing");
     std::vector<uint8_t> output;
     output.push_back(0x01);           //D-Len
     output.push_back(0x92);           //Command reference
@@ -87,9 +82,9 @@ EZN64_usb::reference(libusb_device_handle *handle)
 }
 
 float
-EZN64_usb::set_position(libusb_device_handle *handle, float goal_position, float act_position)
+EZN64_usb::setPosition(libusb_device_handle *handle, float goal_position)
 {
-    std::cout << "EZN64 IFNO: Moving from: " << act_position << " [mm] to " << goal_position << " [mm]" << std::endl;
+    ROS_INFO_STREAM("EZN64: Moving from: " << act_position_ << " [mm] to " << goal_position << " [mm]");
 
     std::vector<uint8_t> output;
     output.push_back(0x05);                //D-Len
@@ -103,48 +98,15 @@ EZN64_usb::set_position(libusb_device_handle *handle, float goal_position, float
     output.push_back(IEEE754_bytes[2]);    //Position third byte
     output.push_back(IEEE754_bytes[3]);    //Position fourth byte
 
-   /*//Velocity<0-82>mm/s
-    float_to_IEEE_754(velocity, IEEE754_bytes);
-    output.push_back(IEEE754_bytes[0]);    //Velocity first byte
-    output.push_back(IEEE754_bytes[1]);    //Velocity second byte
-    output.push_back(IEEE754_bytes[2]);    //Velocity third byte
-    output.push_back(IEEE754_bytes[3]);    //Velocity fourth byte
-
-    //Acceleration<0-320>mm/s2
-    float_to_IEEE_754(acceleration, IEEE754_bytes);
-    output.push_back(IEEE754_bytes[0]);    //Acceleration first byte
-    output.push_back(IEEE754_bytes[1]);    //Acceleration second byte
-    output.push_back(IEEE754_bytes[2]);    //Acceleration third byte
-    output.push_back(IEEE754_bytes[3]);    //Acceleration fourth byte
-*/
     //Send message to the module and recieve response
-    usb_write(handle, output);
-
-    bool position_reached = false;
-    std::vector<uint8_t> input;
-
-    while(position_reached == false)
-    {
-        input = usb_read(handle);
-        for(size_t i = 0; i < input.size(); i++)
-            if((input[i] == 0x05) && (input[i+1] == 0x94))
-            {
-                position_reached = true;
-                uint8_t raw[4] = {input[i+5], input[i+4], input[i+3], input[i+2]};
-                act_position = IEEE_754_to_float(raw);
-                std::cout << "EZN64 INFO: Reached position: " << act_position << std::endl;
-                return act_position;
-            }
-        ros::Duration(0.1).sleep();
-    }
-   
+    usb_write(handle, output);       
 }
 
 uint8_t
-EZN64_usb::get_error(libusb_device_handle *handle)
+EZN64_usb::getError(libusb_device_handle *handle)
 {
     std::vector<uint8_t> output;
-    output.push_back(0x06);                 //D-Lengripper_id
+    output.push_back(0x06);                 //D-Length
     output.push_back(0x95);                 //Command get state
     output.push_back(0x00);
     output.push_back(0x00);
@@ -169,95 +131,73 @@ EZN64_usb::get_error(libusb_device_handle *handle)
            for(size_t i = 0; i < input.size(); i++)
               if ((input[i] == 0x07) && (input[i+1] == 0x95)) get_state_index = i;
 
-           int ezn64_error = input[get_state_index + 7];
+           int ezn64_error_ = input[get_state_index + 7];
 
-           switch (ezn64_error)
+           switch (ezn64_error_)
            {
-                   case 0x00: std::cout << "EZN64 INFO: No error detected" << std::endl; break;
-                   case 0xC8: std::cout << "EZN65 INFO: Error: 0xC8 detected: Wrong ramp type" << std::endl; break;
-                   case 0xD2: std::cout << "EZN65 INFO: Error: 0xD2 detected: Config memory" << std::endl; break;
-                   case 0xD3: std::cout << "EZN65 INFO: Error: 0xD3 detected: Program memory" << std::endl; break;
-                   case 0xD4: std::cout << "EZN65 INFO: Error: 0xD4 detected: Invalid phrase" << std::endl; break;
-                   case 0xD5: std::cout << "EZN65 INFO: Error: 0xD5 detected: Soft low" << std::endl; break;
-                   case 0xD6: std::cout << "EZN65 INFO: Error: 0xD6 detected: Soft high" << std::endl; break;
-                   case 0xD7: std::cout << "EZN65 INFO: Error: 0xD7 detected: Pressure" << std::endl; break;
-                   case 0xD8: std::cout << "EZN65 INFO: Error: 0xD8 detected: Service required" << std::endl; break;
-                   case 0xD9: std::cout << "EZN65 INFO: Error: 0xD9 detected: Emergency stop" << std::endl; break;
-                   case 0xDA: std::cout << "EZN65 INFO: Error: 0xDA detected: Tow" << std::endl; break;
-                   case 0xE4: std::cout << "EZN65 INFO: Error: 0xE4 detected: Too fast" << std::endl; break;
-                   case 0xEC: std::cout << "EZN65 INFO: Error: 0xEC detected: Math error" << std::endl; break;
-                   case 0xDB: std::cout << "EZN65 INFO: Error: 0xDB detected: VPC3" << std::endl; break;
-                   case 0xDC: std::cout << "EZN65 INFO: Error: 0xDC detected: Fragmentation" << std::endl; break;
-                   case 0xDE: std::cout << "EZN65 INFO: Error: 0xDE detected: Current" << std::endl; break;
-                   case 0xDF: std::cout << "EZN65 INFO: Error: 0xDF detected: I2T" << std::endl; break;
-                   case 0xE0: std::cout << "EZN65 INFO: Error: 0xE0 detected: Initialize" << std::endl; break;
-                   case 0xE1: std::cout << "EZN65 INFO: Error: 0xE1 detected: Internal" << std::endl; break;
-                   case 0xE2: std::cout << "EZN65 INFO: Error: 0xE2 detected: Hard low" << std::endl; break;
-                   case 0xE3: std::cout << "EZN65 INFO: Error: 0xE3 detected: Hard high" << std::endl; break;
-                   case 0x70: std::cout << "EZN65 INFO: Error: 0x70 detected: Temp low" << std::endl; break;
-                   case 0x71: std::cout << "EZN65 INFO: Error: 0x71 detected: Temp high" << std::endl; break;
-                   case 0x72: std::cout << "EZN65 INFO: Error: 0x72 detected: Logic low" << std::endl; break;
-                   case 0x73: std::cout << "EZN65 INFO: Error: 0x73 detected: Logic high" << std::endl; break;
-                   case 0x74: std::cout << "EZN65 INFO: Error: 0x74 detected: Motor voltage low" << std::endl; break;
-                   case 0x75: std::cout << "EZN65 INFO: Error: 0x75 detected: Motor voltage high" << std::endl; break;
-                   case 0x76: std::cout << "EZN65 INFO: Error: 0x76 detected: Cable break" << std::endl; break;
-                   case 0x78: std::cout << "EZN65 INFO: Error: 0x78 detected: Motor temp " << std::endl; break;
+                   case 0x00: ROS_INFO("EZN64: No error detected"); break;
+                   case 0xC8: ROS_ERROR("EZN64: Error: 0xC8 detected: Wrong ramp type"); break;
+                   case 0xD2: ROS_ERROR("EZN64: Error: 0xD2 detected: Config memory"); break;
+                   case 0xD3: ROS_ERROR("EZN64: Error: 0xD3 detected: Program memory"); break;
+                   case 0xD4: ROS_ERROR("EZN64: Error: 0xD4 detected: Invalid phrase"); break;
+                   case 0xD5: ROS_ERROR("EZN64: Error: 0xD5 detected: Soft low"); break;
+                   case 0xD6: ROS_ERROR("EZN64: Error: 0xD6 detected: Soft high"); break;
+                   case 0xD7: ROS_ERROR("EZN64: Error: 0xD7 detected: Pressure"); break;
+                   case 0xD8: ROS_ERROR("EZN64: Error: 0xD8 detected: Service required"); break;
+                   case 0xD9: ROS_ERROR("EZN64: Error: 0xD9 detected: Emergency stop"); break;
+                   case 0xDA: ROS_ERROR("EZN64: Error: 0xDA detected: Tow"); break;
+                   case 0xE4: ROS_ERROR("EZN64: Error: 0xE4 detected: Too fast"); break;
+                   case 0xEC: ROS_ERROR("EZN64: Error: 0xEC detected: Math error"); break;
+                   case 0xDB: ROS_ERROR("EZN64: Error: 0xDB detected: VPC3"); break;
+                   case 0xDC: ROS_ERROR("EZN64: Error: 0xDC detected: Fragmentation"); break;
+                   case 0xDE: ROS_ERROR("EZN64: Error: 0xDE detected: Current"); break;
+                   case 0xDF: ROS_ERROR("EZN64: Error: 0xDF detected: I2T"); break;
+                   case 0xE0: ROS_ERROR("EZN64: Error: 0xE0 detected: Initialize"); break;
+                   case 0xE1: ROS_ERROR("EZN64: Error: 0xE1 detected: Internal"); break;
+                   case 0xE2: ROS_ERROR("EZN64: Error: 0xE2 detected: Hard low"); break;
+                   case 0xE3: ROS_ERROR("EZN64: Error: 0xE3 detected: Hard high"); break;
+                   case 0x70: ROS_ERROR("EZN64: Error: 0x70 detected: Temp low"); break;
+                   case 0x71: ROS_ERROR("EZN64: Error: 0x71 detected: Temp high"); break;
+                   case 0x72: ROS_ERROR("EZN64: Error: 0x72 detected: Logic low"); break;
+                   case 0x73: ROS_ERROR("EZN64: Error: 0x73 detected: Logic high"); break;
+                   case 0x74: ROS_ERROR("EZN64: Error: 0x74 detected: Motor voltage low"); break;
+                   case 0x75: ROS_ERROR("EZN64: Error: 0x75 detected: Motor voltage high"); break;
+                   case 0x76: ROS_ERROR("EZN64: Error: 0x76 detected: Cable break"); break;
+                   case 0x78: ROS_ERROR("EZN64: Error: 0x78 detected: Motor temp "); break;
            }
-           return((uint8_t)ezn64_error);
+           //Reset periodic position reading
+           getPosition(handle);
+	   
+           return((uint8_t)ezn64_error_);
         }
         else
         {
-            std::cout << "EZN64 WARN: Not get_state response" << std::endl;
-            return(0xff) ;
+            ROS_WARN("EZN64: Not get_state response");
+            
+	    //Reset periodic position reading
+	    getPosition(handle);
+	    return(0xff) ;
         }
      }
      output.clear();
 }
 
 float
-EZN64_usb::get_position(libusb_device_handle *handle)
+EZN64_usb::getPosition(libusb_device_handle *handle)
 {
     std::vector<uint8_t> output;
     output.push_back(0x06);                 //D-Len
     output.push_back(0x95);                 //Command get state
-    output.push_back(0x00);
-    output.push_back(0x00);
-    output.push_back(0x00);
-    output.push_back(0x00);
-    output.push_back(0x01);
+    output.push_back(0xcd);
+    output.push_back(0xcc);
+    output.push_back(0xcc);
+    output.push_back(0x3d);
+    output.push_back(0x07);
 
     //Send get_state message to the module and recieve response
     usb_write(handle, output);
 
-    ros::Duration(0.1).sleep();
-    std::vector<uint8_t> input;
-    input = usb_read(handle);
-
-    //Detect reached position response
-    float act_position;
-
-    if(input.size() > 0)
-    {
-        for(size_t i = 0; i < input.size(); i++)
-	{
-	    if((input[i] == 0x07) && (input[i+1] == 0x95))
-            {
-                uint8_t raw[4] = {input[i+5], input[i+4], input[i+3], input[i+2]};
-                act_position = IEEE_754_to_float(raw);
-                std::cout << "EZN64 INFO: Actual position: " << act_position << std::endl;
-                return(act_position);
-            }
-            else if ((input[i] == 0x05) && (input[i+1] == 0x94))
-            {
-                uint8_t raw[4] = {input[i+5], input[i+4], input[i+3], input[i+2]};
-                act_position = IEEE_754_to_float(raw);
-                std::cout << "EZN64 INFO: Actual position: " << act_position << std::endl;
-                return(act_position);
-            }
-            
-       }
-    }
-  
+    return(act_position_);  
 }
 
 
@@ -274,7 +214,7 @@ EZN64_usb::stop(libusb_device_handle *handle)
 }
 
 void
-EZN64_usb::acknowledge_error(libusb_device_handle *handle)
+EZN64_usb::acknowledgeError(libusb_device_handle *handle)
 {
     std::vector<uint8_t> output;
     output.push_back(0x01);                                         //D-Len
@@ -289,62 +229,57 @@ EZN64_usb::acknowledge_error(libusb_device_handle *handle)
 ///////////////////////////////////////////////////////////////
 
 bool
-EZN64_usb::reference_callback(ezn64::reference::Request &req,
+EZN64_usb::referenceCallback(ezn64::reference::Request &req,
                                  ezn64::reference::Response &res)
 {
-    std::cout << "EZN64 INFO: Reference Cmd recieved " << std::endl;
-    reference(ezn64_handle);
-    ros::Duration(3).sleep();
-    res.reference_response = get_position(ezn64_handle);
-        
+    ROS_INFO("EZN64: Reference Cmd recieved ");
+    reference(ezn64_handle_);           
 }
 
 
 bool
-EZN64_usb::set_position_callback(ezn64::set_position::Request &req,
+EZN64_usb::setPositionCallback(ezn64::set_position::Request &req,
                                     ezn64::set_position::Response &res)
 {
-    std::cout << "EZN64 INFO: Set position Cmd recieved" << std::endl;
+    ROS_INFO("EZN64: Set position Cmd recieved");
 
     //Check if goal request respects gripper limits <0-10> mm
     if ((req.goal_position >= 0) && (req.goal_position < 69))
     {
-       act_position = set_position(ezn64_handle,req.goal_position, act_position);  
+       act_position_ = setPosition(ezn64_handle_,req.goal_position);  
        res.goal_accepted = true;
     }
     else
     {
-      std::cout << "PG70 WARN: Goal position rejected!" << std::endl;
+      ROS_WARN("EZN64: Goal position rejected!");
       res.goal_accepted = false;
     }
 }
 
 bool
-EZN64_usb::get_error_callback(ezn64::get_error::Request &req,
-                              ezn64::get_error::Response &res)
+EZN64_usb::getErrorCallback(ezn64::get_error::Request &req,
+                            ezn64::get_error::Response &res)
 {
-    std::cout << "EZN64 INFO: Get state request recieved" << std::endl;
-    res.error_code = get_error(ezn64_handle);
-
+    ROS_INFO:("EZN64: Get state request recieved");
+    res.error_code = getError(ezn64_handle_);
 }
 
 bool
-EZN64_usb::get_position_callback(ezn64::get_position::Request &req,
-                                 ezn64::get_position::Response &res)
+EZN64_usb::getPositionCallback(ezn64::get_position::Request &req,
+                               ezn64::get_position::Response &res)
 {
-    std::cout << "EZN64 INFO: Get position request recieved" << std::endl;
-    res.actual_position = get_position(ezn64_handle);
-    
+    ROS_INFO("EZN64: Get position request recieved");
+    res.actual_position = act_position_;    
 }
 
 bool
-EZN64_usb::acknowledge_error_callback(ezn64::acknowledge_error::Request &req,
+EZN64_usb::acknowledgeErrorCallback(ezn64::acknowledge_error::Request &req,
                                       ezn64::acknowledge_error::Response &res)
 {
-    std::cout << "EZN64 INFO: Cmd Acknowledge error recieved" << std::endl;
-    acknowledge_error(ezn64_handle);
+    ROS_INFO("EZN64: Cmd Acknowledge error recieved");
+    acknowledgeError(ezn64_handle_);
     ros::Duration(1).sleep();
-    if(get_error(ezn64_handle) == 0x00)
+    if(getError(ezn64_handle_) == 0x00)
       res.acknowledge_response = true;
     else
       res.acknowledge_response = false;   
@@ -352,14 +287,57 @@ EZN64_usb::acknowledge_error_callback(ezn64::acknowledge_error::Request &req,
 
 
 bool
-EZN64_usb::stop_callback(ezn64::stop::Request &req,
+EZN64_usb::stopCallback(ezn64::stop::Request &req,
                          ezn64::stop::Response &res)
 {
-    std::cout << "EZN64 INFO: Cmd Stop recieved" << std::endl;
-    stop(ezn64_handle);
+    ROS_INFO("EZN64: Cmd Stop recieved");
+    stop(ezn64_handle_);
     ros::Duration(1).sleep();
-    res.stop_result = get_position(ezn64_handle);
- 
+    res.stop_result = getPosition(ezn64_handle_); 
+}
+
+void
+EZN64_usb::timerCallback(const ros::TimerEvent &event)
+{
+  std::vector<uint8_t> input;
+  input = usb_read(ezn64_handle_);
+    
+  //Detect position reached response
+  for(size_t i = 0; i < input.size(); i++)
+  {
+    if((input[i] == 0x07) && (input[i+1] == 0x95))
+    {
+      uint8_t raw[4] = {input[i+5], input[i+4], input[i+3], input[i+2]};
+      act_position_ = IEEE_754_to_float(raw);      
+    }
+    else if ((input[i] == 0x0f) && (input[i+2] == 0x95))
+    {
+      uint8_t raw[4] = {input[i+6], input[i+5], input[i+4], input[i+3]};
+      act_position_ = IEEE_754_to_float(raw);      
+    }
+    else if ((input[i] == 0x05) && (input[i+1] == 0x94))
+    {
+      uint8_t raw[4] = {input[i+5], input[i+4], input[i+3], input[i+2]};
+      act_position_ = IEEE_754_to_float(raw);      
+    }
+  }
+  
+  //Publish TF
+  ezn64_joint_state_.header.stamp = ros::Time::now();
+  ezn64_joint_state_.name.clear();
+  ezn64_joint_state_.position.clear();
+    
+  ezn64_joint_state_.name.push_back("ezn64_finger_1_joint");
+  ezn64_joint_state_.position.push_back(act_position_/1000);
+  
+  ezn64_joint_state_.name.push_back("ezn64_finger_2_joint");
+  ezn64_joint_state_.position.push_back(act_position_/1000);
+  
+  ezn64_joint_state_.name.push_back("ezn64_finger_3_joint");
+  ezn64_joint_state_.position.push_back(act_position_/1000);
+   
+  joint_pub.publish(ezn64_joint_state_);         
+  
 }
 
 /////////////////////////////////////////////////////////
@@ -372,37 +350,37 @@ EZN64_usb::find_ezn64_dev(int VendorID, int ProductID)
     int r;
 
     //Initialize USB session
-    r= libusb_init(&usb_context);
+    r= libusb_init(&usb_context_);
     if (r < 0)
     {
-        std::cout << "EZN64 ERROR: Init Error" << std::endl;
+        ROS_ERROR("EZN64: Init Error");
         return 0;
     }
-    libusb_set_debug(usb_context,3);        //set verbosity level to 3, as suggested in the documentation
+    libusb_set_debug(usb_context_,3);        //set verbosity level to 3, as suggested in the documentation
 
     //Get list of devices
     static size_t dev_cnt;          //number of devices
     libusb_device **devs;           //pointer to pointer of device used to retrieve a list of devices
-    dev_cnt = libusb_get_device_list(usb_context, &devs);
+    dev_cnt = libusb_get_device_list(usb_context_, &devs);
     if(dev_cnt < 0)
     {
-        std::cout << "EZN64 ERROR: Get device Error" << std::endl;
+        ROS_ERROR("EZN64: Get device Error");
         return 0;
     }
     else
-        std::cout << "EZN64 INFO: Number of devices: " << dev_cnt << std::endl;
+        ROS_INFO_STREAM("EZN64: Number of devices: " << dev_cnt);
 
     for(size_t i =0; i < dev_cnt; i++)
     {
         struct libusb_device_descriptor descriptor;
         if(libusb_get_device_descriptor(devs[i], &descriptor))
         {
-            std::cout << "EZN64 ERROR: Not able to read descriptor" << std::endl;
+            ROS_ERROR("EZN64: Not able to read descriptor");
             return 0;
         }
         if((descriptor.idVendor == VendorID) && (descriptor.idProduct == ProductID))
         {
-            std::cout << "EZN64 INFO: Gripper found" << std::endl;
+            ROS_INFO("EZN64: Gripper found");
             return devs[i];
         }
     }
@@ -417,23 +395,23 @@ EZN64_usb::open_ezn64_dev(libusb_device *dev)
     //Open device
     if(libusb_open(dev, &handle))
     {
-        std::cout << "EZN64 ERROR: Port not oppened! " <<std::endl;
+        ROS_ERROR("EZN64: Port not oppened!");
         return 0;
     }
     else
     {
-        std::cout << "EZN64 INFO: USB interface oppened successfully! " << std::endl;
+        ROS_INFO("EZN64: USB interface oppened successfully! ");
         return handle;
     }
 
 }
 
 int
-EZN64_usb::close_ezn64_dev(libusb_device_handle *handle, libusb_context *usb_context)
+EZN64_usb::close_ezn64_dev(libusb_device_handle *handle, libusb_context *usb_context_)
 {
-   std::cout << "EZN64 INFO: Closing USB port " << std::endl;
+   ROS_INFO("EZN64: Closing USB port");
    libusb_close(handle);
-   libusb_exit(usb_context);
+   libusb_exit(usb_context_);
    return 0;
 }
 
@@ -446,15 +424,15 @@ EZN64_usb::usb_write(libusb_device_handle *handle, std::vector<uint8_t> output)
     //find out if kernel driver is attached
     if(libusb_kernel_driver_active(handle, 0) == 1)
     {
-        std::cout << "EZN64 INFO: Kernel Driver Active" << std::endl;
+        ROS_INFO("EZN64: Kernel Driver Active");
 
          if(libusb_detach_kernel_driver(handle, 0) == 0) //detach it
-            std::cout << "EZN64 INFO: Kernel Driver Detached!" << std::endl;
+            ROS_INFO("EZN64: Kernel Driver Detached!");
     }
 
    r = libusb_claim_interface(handle, 0); //claim interface 0 (the first) of device (mine had jsut 1)
 
-   if(r < 0) std::cout << "EZN64 INFO: Cannot Claim Interface" << std::endl;
+   if(r < 0) ROS_INFO("EZN64: Cannot Claim Interface");
 
    //Write
 
@@ -463,20 +441,18 @@ EZN64_usb::usb_write(libusb_device_handle *handle, std::vector<uint8_t> output)
    for(size_t i = 0; i < output.size(); i++)
    {
      data_out[i] = output[i];
-     //ROS_INFO("Output: %x", data_out[i]);
+     //ROS_INFO("Output[%d]: %x", i,data_out[i]);
    }
 
    r = libusb_bulk_transfer(handle, 1, data_out, output.size(), &byte_cnt,1000);
-   if (byte_cnt == 0) std::cout << "EZN64 ERROR: Write error" << std::endl;
+   if (byte_cnt == 0) ROS_ERROR("EZN64: Write error");
 
    //Release interface
 
    r = libusb_release_interface(handle, 0);  //release the claimed interface
    if(r != 0)
-   {
-       std::cout << "EZN64 ERROR: Cannot release the claimed interface" << std::endl;
-   }
-
+     ROS_ERROR("EZN64: Cannot release the claimed interface");
+   
    delete[] data_out;
 
 }
@@ -490,15 +466,15 @@ EZN64_usb::usb_read(libusb_device_handle *handle)
     //find out if kernel driver is attached
     if(libusb_kernel_driver_active(handle, 0) == 1)
     {
-        std::cout << "EZN64 INFO: Kernel Driver Active" << std::endl;
+        ROS_INFO("EZN64: Kernel Driver Active");
 
          if(libusb_detach_kernel_driver(handle, 0) == 0) //detach it
-            std::cout << "EZN64 INFO: Kernel Driver Detached!" << std::endl;
+            ROS_INFO("EZN64: Kernel Driver Detached!");
     }
 
-   r = libusb_claim_interface(handle, 0); //claim interface 0 (the first) of device (mine had jsut 1)
+   r = libusb_claim_interface(handle, 0); //claim interface 0 (the first) of device (mine had just 1)
 
-   if(r < 0) std::cout << "EZN64 INFO: Cannot Claim Interface" << std::endl;
+   if(r < 0) ROS_ERROR("EZN64: Cannot Claim Interface");
 
    //Read
    std::vector<uint8_t> input;
@@ -510,17 +486,15 @@ EZN64_usb::usb_read(libusb_device_handle *handle)
         for(size_t i = 0; i < byte_cnt; i++)
         {
             input.push_back(data_in[i]);
-            //ROS_INFO("Input: %x", data_in[i]);
+            //ROS_INFO("Input[%d]: %x", i, data_in[i]);
         }
    }
 
    //Release interface
    r = libusb_release_interface(handle, 0);  //release the claimed interface
    if(r != 0)
-   {
-       std::cout << "EZN64 ERROR: Cannot release the claimed interface" << std::endl;
-   }
-
+     ROS_ERROR("EZN64: Cannot release the claimed interface");
+   
    delete[] data_in;
    return input;
 }
@@ -531,18 +505,19 @@ EZN64_usb::print_libusb_dev(libusb_device *dev)
 {
    libusb_device_descriptor desc;
    int r = libusb_get_device_descriptor(dev, &desc);
-   if (r < 0) {
-       std::cout<<"EZN64 ERROR: failed to get device descriptor"<<std::endl;
-       return;
-    }
+   if (r < 0) 
+   {
+     ROS_ERROR("EZN64: failed to get device descriptor");
+     return;
+   }
 
-   std::cout << "EZN64 INFO: Number of possible configurations: " << (int)desc.bNumConfigurations<<"  " << std::endl;
-   std::cout << "EZN64 INFO: VendorID: "  << desc.idVendor <<"  ";
-   std::cout << " ProductID: " << desc.idProduct<< std::endl;
+   ROS_INFO_STREAM("EZN64: Number of possible configurations: " << (int)desc.bNumConfigurations);
+   ROS_INFO_STREAM("EZN64: VendorID: "  << desc.idVendor);
+   ROS_INFO_STREAM("EZN64: ProductID: " << desc.idProduct);
 
    libusb_config_descriptor *config;
    libusb_get_config_descriptor(dev, 0, &config);
-   std::cout<<"EZN64 INFO: Interfaces: "<<(int)config->bNumInterfaces<< std::endl;
+   ROS_INFO_STREAM("EZN64: Interfaces: "<<(int)config->bNumInterfaces);
 
    const libusb_interface *inter;
    const libusb_interface_descriptor *interdesc;

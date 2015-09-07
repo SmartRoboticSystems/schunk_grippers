@@ -37,6 +37,9 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <ros/ros.h>
 #include <libusb.h>
 
+#include <tf/transform_broadcaster.h>
+#include <sensor_msgs/JointState.h>
+
 //Service headers
 #include <ezn64/reference.h>
 #include <ezn64/set_position.h>
@@ -51,58 +54,64 @@ public:
     explicit EZN64_usb(ros::NodeHandle *nh);
     ~EZN64_usb();
 
-     //Gripper commands
-     float set_position(libusb_device_handle *handle, float goal_position, float act_position);
-     float get_position(libusb_device_handle *handle);
-     uint8_t get_error(libusb_device_handle *handle);
-     void stop(libusb_device_handle *handle);
-     void acknowledge_error(libusb_device_handle *handle);
-     void reference(libusb_device_handle *handle);
-
      //Service callbacks
-     bool reference_callback(ezn64::reference::Request &req,
+     bool referenceCallback(ezn64::reference::Request &req,
                              ezn64::reference::Response &res);
 
-     bool set_position_callback(ezn64::set_position::Request &req,
+     bool setPositionCallback(ezn64::set_position::Request &req,
                                 ezn64::set_position::Response &res);
 
-     bool get_error_callback(ezn64::get_error::Request &req,
+     bool getErrorCallback(ezn64::get_error::Request &req,
                              ezn64::get_error::Response &res);
 
-     bool get_position_callback(ezn64::get_position::Request &req,
+     bool getPositionCallback(ezn64::get_position::Request &req,
                                 ezn64::get_position::Response &res);
 
-     bool acknowledge_error_callback(ezn64::acknowledge_error::Request &req,
+     bool acknowledgeErrorCallback(ezn64::acknowledge_error::Request &req,
                                      ezn64::acknowledge_error::Response &res);
 
-     bool stop_callback(ezn64::stop::Request &req,
+     bool stopCallback(ezn64::stop::Request &req,
                         ezn64::stop::Response &res);
 
-
-     //Libusb functions
-     libusb_device* find_ezn64_dev(int VendorID, int ProductID);
-     libusb_device_handle* open_ezn64_dev(libusb_device *dev);
-     int close_ezn64_dev(libusb_device_handle *handle, libusb_context *usb_context);
-     void usb_write(libusb_device_handle *handle, std::vector<uint8_t> output);
-     std::vector<uint8_t> usb_read(libusb_device_handle *handle);
-     void print_libusb_dev(libusb_device *dev);
-
-     float IEEE_754_to_float(uint8_t *raw);
-     void float_to_IEEE_754(float position, unsigned int *output_array);
-
+     void timerCallback(const ros::TimerEvent &event);
+     
+     //EZN64 Joint state publisher
+     ros::Publisher joint_pub;
+     
 private:
-    int gripper_id;
-    int vendor_id;
-    int product_id;
+    
+    //Gripper commands
+    float setPosition(libusb_device_handle *handle, float goal_position);
+    float getPosition(libusb_device_handle *handle);
+    uint8_t getError(libusb_device_handle *handle);
+    void stop(libusb_device_handle *handle);
+    void acknowledgeError(libusb_device_handle *handle);
+    void reference(libusb_device_handle *handle);
+  
+    //Libusb functions
+    libusb_device* find_ezn64_dev(int VendorID, int ProductID);
+    libusb_device_handle* open_ezn64_dev(libusb_device *dev);
+    int close_ezn64_dev(libusb_device_handle *handle, libusb_context *usb_context);
+    void usb_write(libusb_device_handle *handle, std::vector<uint8_t> output);
+    std::vector<uint8_t> usb_read(libusb_device_handle *handle);
+    void print_libusb_dev(libusb_device *dev);
 
-    float act_position;
-    uint8_t ezn64_error;
+    float IEEE_754_to_float(uint8_t *raw);
+    void float_to_IEEE_754(float position, unsigned int *output_array);
+    
+    int gripper_id_;
+    int vendor_id_;
+    int product_id_;
 
+    float act_position_;
+    uint8_t ezn64_error_;
+    sensor_msgs::JointState ezn64_joint_state_; 
+    
     //LIBUSB Variables
-    libusb_device *ezn64_dev;
-    libusb_context *usb_context;
-    libusb_device_handle *ezn64_handle;
+    libusb_device *ezn64_dev_;
+    libusb_context *usb_context_;
+    libusb_device_handle *ezn64_handle_;
 
-};
+};  //EZN64_usb
 
 #endif //EZN64_USB_CONTROL_H

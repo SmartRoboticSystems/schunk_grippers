@@ -37,47 +37,41 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <pg70_rs232_control.h>
 
 PG70_serial::PG70_serial(ros::NodeHandle *nh) :
-    act_position(-1),
-    pg70_error(0xff)
+    act_position_(-1),
+    pg70_error_(0xff)
 {
     //Read launch file params
-    nh->getParam("pg70/portname", portname);
-    nh->getParam("pg70/baudrate", baudrate);
-    nh->getParam("pg70/gripper_id", gripper_id);
+    nh->getParam("pg70/portname", port_name_);
+    nh->getParam("pg70/baudrate", baudrate_);
+    nh->getParam("pg70/gripper_id", gripper_id_);
 
     //Initialize and open serial port
-    com_port = new serial::Serial (portname, (uint32_t)baudrate, serial::Timeout::simpleTimeout(100));
-    if (com_port->isOpen()) std::cout << "PG70 INFO: Serial port " << portname << " openned successfully" << std::endl;
-    else                    std::cout << "PG70 ERROR: Serial port " << portname<< " not opened" << std::endl;
+    com_port_ = new serial::Serial (port_name_, (uint32_t)baudrate_, serial::Timeout::simpleTimeout(100));
+    if (com_port_->isOpen()) ROS_INFO_STREAM("PG70: Serial port " << port_name_ << " openned");
+    else                    ROS_ERROR_STREAM("PG70: Serial port " << port_name_ << " not opened");
 
     //Get initial state and discard input buffer
-    while(pg70_error == 0xff)
+    while(pg70_error_ == 0xff)
     {
-        pg70_error = get_error(com_port);
+        pg70_error_ = getError(com_port_);
         ros::Duration(0.5).sleep();
     }
-
-    while(act_position == -1)
-    {
-        act_position = get_position(com_port);
-        ros::Duration(0.5).sleep();
-    }
+    //Start periodic position reading
+    getPosition(com_port_);    
 }
-
 
 PG70_serial::~PG70_serial()
 {
-    com_port->close();      //Close port
-    delete com_port;        //delete object
+    com_port_->close();      //Close port
+    delete com_port_;        //delete object
 }
-
 
 void
 PG70_serial::reference(serial::Serial *port)
 {
     std::vector<uint8_t> output;
     output.push_back(0x05);           //message from master to module
-    output.push_back(gripper_id);     //module id
+    output.push_back(gripper_id_);     //module id
     output.push_back(0x01);           //D-Len
     output.push_back(0x92);           //Command reference
 
@@ -96,12 +90,12 @@ PG70_serial::reference(serial::Serial *port)
 }
 
 float
-PG70_serial::set_position(serial::Serial *port, int goal_position, int velocity, int acceleration)
+PG70_serial::setPosition(serial::Serial *port, int goal_position, int velocity, int acceleration)
 {
 
     std::vector<uint8_t> output;
     output.push_back(0x05);                //message from master to module
-    output.push_back(gripper_id);          //module id
+    output.push_back(gripper_id_);          //module id
     output.push_back(0x0D);                //D-Len
     output.push_back(0xb0);                //Command mov pos
 
@@ -139,38 +133,17 @@ PG70_serial::set_position(serial::Serial *port, int goal_position, int velocity,
     output.push_back((crc & 0xff00) >> 8);
 
     //Send message to the module
-    port->flushInput();
     port->write(output);
-
-    //Read module response
-    bool position_reached = false;
-    std::vector<uint8_t> input;
-
-    while(position_reached == false)
-    {
-        //std::cout << "PG70 INFO: Reading current position..." << std::endl;
-        port->read(input,512);
-
-        for(size_t i = 0; i < input.size(); i++)
-            if((input[i] == 0x05) && (input[i+1] == 0x94))
-            {
-                position_reached = true;
-                uint8_t raw[4] = {input[i+5], input[i+4], input[i+3], input[i+2]};
-                act_position = IEEE_754_to_float(raw);
-                std::cout << "PG70 INFO: Reached position: " << act_position << " [mm]" << std::endl;
-                return act_position;
-             }
-             ros::Duration(0.1).sleep();
-       }
+   
 }
 
 uint8_t
-PG70_serial::get_error(serial::Serial *port)
+PG70_serial::getError(serial::Serial *port)
 {
-    std::cout << "Reading current module state..." << std::endl;
+    ROS_INFO("Reading current module state...");
     std::vector<uint8_t> output;
     output.push_back(0x05);                 //message from master to module
-    output.push_back(gripper_id);           //module id
+    output.push_back(gripper_id_);           //module id
     output.push_back(0x06);                 //D-Len
     output.push_back(0x95);                 //Command get state
     output.push_back(0x00);
@@ -206,64 +179,65 @@ PG70_serial::get_error(serial::Serial *port)
           for(size_t i = 0; i < input.size(); i++)
               if ((input[i] == 0x07) && (input[i+1] == 0x95)) get_state_index = i;
 
-              int pg70_error = input[get_state_index + 7];
+              int pg70_error_ = input[get_state_index + 7];
 
-              switch (pg70_error)
+              switch (pg70_error_)
               {
-                  case 0x00: std::cout << "PG70 INFO: No error detected" << std::endl; break;
-                  case 0xC8: std::cout << "PG70 INFO: Error: 0xC8 detected: Wrong ramp type" << std::endl; break;
-                  case 0xD2: std::cout << "PG70 INFO: Error: 0xD2 detected: Config memory" << std::endl; break;
-                  case 0xD3: std::cout << "PG70 INFO: Error: 0xD3 detected: Program memory" << std::endl; break;
-                  case 0xD4: std::cout << "PG70 INFO: Error: 0xD4 detected: Invalid phrase" << std::endl; break;
-                  case 0xD5: std::cout << "PG70 INFO: Error: 0xD5 detected: Soft low" << std::endl; break;
-                  case 0xD6: std::cout << "PG70 INFO: Error: 0xD6 detected: Soft high" << std::endl; break;
-                  case 0xD7: std::cout << "PG70 INFO: Error: 0xD7 detected: Pressure" << std::endl; break;
-                  case 0xD8: std::cout << "PG70 INFO: Error: 0xD8 detected: Service required" << std::endl; break;
-                  case 0xD9: std::cout << "PG70 INFO: Error: 0xD9 detected: Emergency stop" << std::endl; break;
-                  case 0xDA: std::cout << "PG70 INFO: Error: 0xDA detected: Tow" << std::endl; break;
-                  case 0xE4: std::cout << "PG70 INFO: Error: 0xE4 detected: Too fast" << std::endl; break;
-                  case 0xEC: std::cout << "PG70 INFO: Error: 0xEC detected: Math error" << std::endl; break;
-                  case 0xDB: std::cout << "PG70 INFO: Error: 0xDB detected: VPC3" << std::endl; break;
-                  case 0xDC: std::cout << "PG70 INFO: Error: 0xDC detected: Fragmentation" << std::endl; break;
-                  case 0xDE: std::cout << "PG70 INFO: Error: 0xDE detected: Current" << std::endl; break;
-                  case 0xDF: std::cout << "PG70 INFO: Error: 0xDF detected: I2T" << std::endl; break;
-                  case 0xE0: std::cout << "PG70 INFO: Error: 0xE0 detected: Initialize" << std::endl; break;
-                  case 0xE1: std::cout << "PG70 INFO: Error: 0xE1 detected: Internal" << std::endl; break;
-                  case 0xE2: std::cout << "PG70 INFO: Error: 0xE2 detected: Hard low" << std::endl; break;
-                  case 0xE3: std::cout << "PG70 INFO: Error: 0xE3 detected: Hard high" << std::endl; break;
-                  case 0x70: std::cout << "PG70 INFO: Error: 0x70 detected: Temp low" << std::endl; break;
-                  case 0x71: std::cout << "PG70 INFO: Error: 0x71 detected: Temp high" << std::endl; break;
-                  case 0x72: std::cout << "PG70 INFO: Error: 0x72 detected: Logic low" << std::endl; break;
-                  case 0x73: std::cout << "PG70 INFO: Error: 0x73 detected: Logic high" << std::endl; break;
-                  case 0x74: std::cout << "PG70 INFO: Error: 0x74 detected: Motor voltage low" << std::endl; break;
-                  case 0x75: std::cout << "PG70 INFO: Error: 0x75 detected: Motor voltage high" << std::endl; break;
-                  case 0x76: std::cout << "PG70 INFO: Error: 0x76 detected: Cable break" << std::endl; break;
-                  case 0x78: std::cout << "PG70 INFO: Error: 0x78 detected: Motor temp " << std::endl; break;
-               }
-            return((uint8_t)pg70_error);
+                  case 0x00: ROS_INFO("PG70: No error detected"); break;
+                  case 0xC8: ROS_ERROR("PG70: Error: 0xC8 detected: Wrong ramp type"); break;
+                  case 0xD2: ROS_ERROR("PG70: Error: 0xD2 detected: Config memory"); break;
+                  case 0xD3: ROS_ERROR("PG70: Error: 0xD3 detected: Program memory"); break;
+                  case 0xD4: ROS_ERROR("PG70: Error: 0xD4 detected: Invalid phrase"); break;
+                  case 0xD5: ROS_ERROR("PG70: Error: 0xD5 detected: Soft low"); break;
+                  case 0xD6: ROS_ERROR("PG70: Error: 0xD6 detected: Soft high"); break;
+                  case 0xD7: ROS_ERROR("PG70: Error: 0xD7 detected: Pressure"); break;
+                  case 0xD8: ROS_ERROR("PG70: Error: 0xD8 detected: Service required"); break;
+                  case 0xD9: ROS_ERROR("PG70: Error: 0xD9 detected: Emergency stop"); break;
+                  case 0xDA: ROS_ERROR("PG70: Error: 0xDA detected: Tow"); break;
+                  case 0xE4: ROS_ERROR("PG70: Error: 0xE4 detected: Too fast"); break;
+                  case 0xEC: ROS_ERROR("PG70: Error: 0xEC detected: Math error"); break;
+                  case 0xDB: ROS_ERROR("PG70: Error: 0xDB detected: VPC3"); break;
+                  case 0xDC: ROS_ERROR("PG70: Error: 0xDC detected: Fragmentation"); break;
+                  case 0xDE: ROS_ERROR("PG70: Error: 0xDE detected: Current"); break;
+                  case 0xDF: ROS_ERROR("PG70: Error: 0xDF detected: I2T"); break;
+                  case 0xE0: ROS_ERROR("PG70: Error: 0xE0 detected: Initialize"); break;
+                  case 0xE1: ROS_ERROR("PG70: Error: 0xE1 detected: Internal"); break;
+                  case 0xE2: ROS_ERROR("PG70: Error: 0xE2 detected: Hard low"); break;
+                  case 0xE3: ROS_ERROR("PG70: Error: 0xE3 detected: Hard high"); break;
+                  case 0x70: ROS_ERROR("PG70: Error: 0x70 detected: Temp low"); break;
+                  case 0x71: ROS_ERROR("PG70: Error: 0x71 detected: Temp high"); break;
+                  case 0x72: ROS_ERROR("PG70: Error: 0x72 detected: Logic low"); break;
+                  case 0x73: ROS_ERROR("PG70: Error: 0x73 detected: Logic high"); break;
+                  case 0x74: ROS_ERROR("PG70: Error: 0x74 detected: Motor voltage low"); break;
+                  case 0x75: ROS_ERROR("PG70: Error: 0x75 detected: Motor voltage high"); break;
+                  case 0x76: ROS_ERROR("PG70: Error: 0x76 detected: Cable break"); break;
+                  case 0x78: ROS_ERROR("PG70: Error: 0x78 detected: Motor temp"); break;
             }
-            else
-            {
-                return(0xff) ;
-            }
-         }
-
+            //Re-start periodic position reading 
+            act_position_ = getPosition(com_port_);
+            
+            return((uint8_t)pg70_error_);
+      }
+      else
+      {
+        return(0xff) ;
+      }
+    }  
 }
 
 float
-PG70_serial::get_position(serial::Serial *port)
+PG70_serial::getPosition(serial::Serial *port)
 {
-    std::cout << "PG70 INFO: Reading current module position..." << std::endl;
     std::vector<uint8_t> output;
     output.push_back(0x05);                 //message from master to module
-    output.push_back(gripper_id);           //module id
+    output.push_back(gripper_id_);          //module id
     output.push_back(0x06);                 //D-Len
-    output.push_back(0x95);                 //Command get state
-    output.push_back(0x00);
-    output.push_back(0x00);
-    output.push_back(0x00);
-    output.push_back(0x00);
-    output.push_back(0x01);
+    output.push_back(0x95);                 //Command get periodic position reading
+    output.push_back(0xcd);
+    output.push_back(0xcc);
+    output.push_back(0xcc);
+    output.push_back(0x3d);
+    output.push_back(0x07);
 
     //Checksum calculation
     uint16_t crc = 0;
@@ -280,31 +254,10 @@ PG70_serial::get_position(serial::Serial *port)
     ros::Duration(0.1).sleep();
 
     std::vector<uint8_t> input;
-    port->read(input, 512);
+    port->read(input, 64);
 
     //Detect reached position response
-    float act_position;
-
-    if(input.size() > 0)
-    {
-        for(size_t i = 0; i < input.size(); i++)
-        {
-            if((input[i] == 0x07) && (input[i+1] == 0x95))
-            {
-                  uint8_t raw[4] = {input[i+5], input[i+4], input[i+3], input[i+2]};
-                  act_position = IEEE_754_to_float(raw);
-                  std::cout << "PG70 INFO: Actual position: " << act_position << " [mm]" << std::endl;
-                  return(act_position);
-            }
-            else if  ((input[i] == 0x05) && (input[i+1] == 0x94))
-            {
-                  uint8_t raw[4] = {input[i+5], input[i+4], input[i+3], input[i+2]};
-                  act_position = IEEE_754_to_float(raw);
-                  std::cout << "PG70 INFO: Actual position: " << act_position << " [mm]" << std::endl;
-                  return(act_position);
-            }
-        }
-    }
+    return act_position_;       
 }
 
 void
@@ -312,7 +265,7 @@ PG70_serial::stop(serial::Serial *port)
 {
     std::vector<uint8_t> output;
     output.push_back(0x05);                                         //message from master to module
-    output.push_back(gripper_id);                                   //module id
+    output.push_back(gripper_id_);                                  //module id
     output.push_back(0x01);                                         //D-Len
     output.push_back(0x91);                                         //Command stop
 
@@ -331,11 +284,11 @@ PG70_serial::stop(serial::Serial *port)
 }
 
 void
-PG70_serial::acknowledge_error(serial::Serial *port)
+PG70_serial::acknowledgeError(serial::Serial *port)
 {
     std::vector<uint8_t> output;
     output.push_back(0x05);                                         //message from master to module
-    output.push_back(gripper_id);                                   //module id
+    output.push_back(gripper_id_);                                  //module id
     output.push_back(0x01);                                         //D-Len
     output.push_back(0x8b);                                         //Command cmd ack
 
@@ -351,7 +304,6 @@ PG70_serial::acknowledge_error(serial::Serial *port)
 
     //Send message to the module
     port->write(output);
-
 }
 
 /////////////////////////////////////////////////////////////
@@ -359,22 +311,19 @@ PG70_serial::acknowledge_error(serial::Serial *port)
 /////////////////////////////////////////////////////////////
 
 bool
-PG70_serial::reference_callback(pg70::reference::Request &req,
-                                pg70::reference::Response &res)
+PG70_serial::referenceCallback(pg70::reference::Request &req,
+                               pg70::reference::Response &res)
 {
-    std::cout << "PG70 INFO: Reference Cmd recieved " << std::endl;
-    reference(com_port);
-    ros::Duration(15).sleep();
-    res.reference_response = get_position(com_port);
- 
+    ROS_INFO("PG70: Reference Cmd recieved ");
+    reference(com_port_);     
 }
 
 
 bool
-PG70_serial::set_position_callback(pg70::set_position::Request &req,
-                                   pg70::set_position::Response &res)
+PG70_serial::setPositionCallback(pg70::set_position::Request &req,
+                                 pg70::set_position::Response &res)
 {
-    std::cout << "PG70 INFO: Set position Cmd recieved" << std::endl;
+    ROS_INFO("PG70: Set position Cmd recieved");
 
     //Check if goal request respects gripper limits <0-70> mm
     if ((req.goal_position >= 0) && (req.goal_position < 69))
@@ -383,68 +332,111 @@ PG70_serial::set_position_callback(pg70::set_position::Request &req,
         {
             if((req.goal_acceleration > 0) && (req.goal_acceleration <= 320))
             {
-                std::cout << "PG70 INFO: Goal accepted " << std::endl;
-                act_position = set_position(com_port,req.goal_position, req.goal_velocity, req.goal_acceleration);
+                ROS_INFO("PG70: Goal accepted ");
+                act_position_ = setPosition(com_port_,req.goal_position, req.goal_velocity, req.goal_acceleration);
                 res.goal_accepted = true;
             }
             else
             {
-                std::cout << "PG70 WARN: Goal acceleration rejected!" << std::endl;
+                ROS_WARN("PG70: Goal acceleration rejected!");
                 res.goal_accepted = false;
             }
         }
         else
         {
-           std::cout << "PG70 WARN: Goal velocity rejected!" << std::endl;
+           ROS_WARN("PG70: Goal velocity rejected!");
            res.goal_accepted = false;
         }
     }
     else
     {
-         std::cout << "PG70 WARN: Goal position rejected!" << std::endl;
+         ROS_WARN("PG70: Goal position rejected!");
          res.goal_accepted = false;
     }
 }
 
 bool
-PG70_serial::get_position_callback(pg70::get_position::Request &req,
-                                   pg70::get_position::Response &res)
+PG70_serial::getPositionCallback(pg70::get_position::Request &req,
+                                 pg70::get_position::Response &res)
 {
-   std::cout << "EZN64 INFO: Get position request recieved" << std::endl;
-   res.actual_position = get_position(com_port);   
+   ROS_INFO("PG70: Get position request recieved");
+   res.actual_position = getPosition(com_port_);   
 }
 
 
 bool
-PG70_serial::get_error_callback(pg70::get_error::Request &req,
-                                pg70::get_error::Response &res)
+PG70_serial::getErrorCallback(pg70::get_error::Request &req,
+                              pg70::get_error::Response &res)
 {
-    std::cout << "PG70 INFO: Get state request recieved" << std::endl;
-    res.error_code = get_error(com_port);
+    ROS_INFO("PG70: Get state request recieved");
+    res.error_code = getError(com_port_);
 }
 
 bool
-PG70_serial::acknowledge_error_callback(pg70::acknowledge_error::Request &req,
-                                        pg70::acknowledge_error::Response &res)
+PG70_serial::acknowledgeErrorCallback(pg70::acknowledge_error::Request &req,
+                                      pg70::acknowledge_error::Response &res)
 {
-    std::cout << "PG70 INFO: Cmd Acknowledge error recieved" << std::endl;
-    acknowledge_error(com_port);
+    ROS_INFO("PG70: Cmd Acknowledge error recieved");
+    acknowledgeError(com_port_);
     ros::Duration(1).sleep();
-    if(get_error(com_port) == 0x00)
+    if(getError(com_port_) == 0x00)
       res.acknowledge_response = true;
     else
       res.acknowledge_response = false;
 }
 
 bool
-PG70_serial::stop_callback(pg70::stop::Request &req,
-                           pg70::stop::Response &res)
+PG70_serial::stopCallback(pg70::stop::Request &req,
+                          pg70::stop::Response &res)
 {
-    std::cout << "PG70 INFO: Cmd Stop recieved" << std::endl;
-    stop(com_port);
+    ROS_INFO("PG70: Cmd Stop recieved");
+    stop(com_port_);
     ros::Duration(1).sleep();
-    res.stop_result = get_position(com_port);
+    res.stop_result = getPosition(com_port_);
         
+}
+
+void
+PG70_serial::timerCallback(const ros::TimerEvent &event)
+{
+  std::vector<uint8_t> input;
+  com_port_->read(input,32);
+
+  //Detect position reached response
+  for(size_t i = 0; i < input.size(); i++)
+  {
+    if((input[i] == 0x05) && (input[i+1] == 0x94))
+    {
+      uint8_t raw[4] = {input[i+5], input[i+4], input[i+3], input[i+2]};
+      act_position_ = IEEE_754_to_float(raw);
+    }
+    
+    if((input[i] == 0x0F) && (input[i+1] == 0x95))
+    {
+      uint8_t raw[4] = {input[i+5], input[i+4], input[i+3], input[i+2]};
+      act_position_ = IEEE_754_to_float(raw);
+    }
+    
+    if((input[i] == 0x07) && (input[i+1] == 0x95))
+    {
+      uint8_t raw[4] = {input[i+5], input[i+4], input[i+3], input[i+2]};
+      act_position_ = IEEE_754_to_float(raw);
+    }
+  }
+  
+  //Publish TF
+  pg70_joint_state_.header.stamp = ros::Time::now();
+  pg70_joint_state_.name.clear();
+  pg70_joint_state_.position.clear();
+    
+  pg70_joint_state_.name.push_back("pg70_finger1_joint");
+  pg70_joint_state_.position.push_back(act_position_/2000);
+  
+  pg70_joint_state_.name.push_back("pg70_finger2_joint");
+  pg70_joint_state_.position.push_back(act_position_/2000);
+   
+  joint_pub.publish(pg70_joint_state_);         
+  
 }
 
 ////////////////////////////////////////////////////
@@ -519,7 +511,6 @@ PG70_serial::CRC16(uint16_t crc, uint16_t data)
     };
 
     return(((crc & 0xFF00) >> 8)  ^ tbl[(crc & 0x00FF) ^ (data & 0x00FF)]);
-
 }
 
 #endif //PG70_RS232_CONTROL_LIB_CPP
