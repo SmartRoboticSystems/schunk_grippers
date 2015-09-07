@@ -56,22 +56,22 @@ public:
 
      //Service callbacks
      bool referenceCallback(ezn64::reference::Request &req,
-                             ezn64::reference::Response &res);
+                            ezn64::reference::Response &res);
 
      bool setPositionCallback(ezn64::set_position::Request &req,
-                                ezn64::set_position::Response &res);
+                              ezn64::set_position::Response &res);
 
      bool getErrorCallback(ezn64::get_error::Request &req,
-                             ezn64::get_error::Response &res);
+                           ezn64::get_error::Response &res);
 
      bool getPositionCallback(ezn64::get_position::Request &req,
-                                ezn64::get_position::Response &res);
+                              ezn64::get_position::Response &res);
 
      bool acknowledgeErrorCallback(ezn64::acknowledge_error::Request &req,
-                                     ezn64::acknowledge_error::Response &res);
+                                   ezn64::acknowledge_error::Response &res);
 
      bool stopCallback(ezn64::stop::Request &req,
-                        ezn64::stop::Response &res);
+                       ezn64::stop::Response &res);
 
      void timerCallback(const ros::TimerEvent &event);
      
