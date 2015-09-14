@@ -1,10 +1,7 @@
 /*********************************************************************************************//**
 * @file pg70_rs232_control.cpp
 *
-* main pg70_rs232_control source
-*
 * Copyright (c)
-* Frantisek Durovsky
 * Department of Robotics
 * Technical University Kosice
 * April 2015
@@ -32,29 +29,20 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 * *********************************************************************************************/
 
-#include <pg70_rs232_control.h>
+/* Author: Frantisek Durovsky */
 
-static const double READ_INPUT_BUFFER_PERIOD = 0.1;
+#include <pg70_rs232_control.h>
 
 int 
 main(int argc, char *argv[])
 {
-    ros::init(argc, argv, "pg70_rs232_control");
-    ros::NodeHandle nh;
+  ros::init(argc, argv, "pg70_rs232_control");
+  ros::NodeHandle nh;
 
-    PG70_serial gripper(&nh);
-
-    ros::ServiceServer reference_service         = nh.advertiseService("pg70/reference", &PG70_serial::referenceCallback, &gripper);
-    ros::ServiceServer set_position_service      = nh.advertiseService("pg70/set_position", &PG70_serial::setPositionCallback, &gripper);
-    ros::ServiceServer get_error_service         = nh.advertiseService("pg70/get_error", &PG70_serial::getErrorCallback, &gripper);
-    ros::ServiceServer get_position_service      = nh.advertiseService("pg70/get_position", &PG70_serial::getPositionCallback, &gripper);
-    ros::ServiceServer acknowledge_error_service = nh.advertiseService("pg70/acknowledge_error", &PG70_serial::acknowledgeErrorCallback, &gripper);
-    ros::ServiceServer stop_service              = nh.advertiseService("pg70/stop", &PG70_serial::stopCallback, &gripper);
-
-    gripper.joint_pub = nh.advertise<sensor_msgs::JointState>("joint_states", 1); 
-    ros::Timer timer = nh.createTimer(ros::Duration(READ_INPUT_BUFFER_PERIOD), &PG70_serial::timerCallback, &gripper);
+  //Create gripper object instance
+  pg70::PG70_serial gripper(&nh);
         
-    ros::spin();
+  ros::spin();
 
-    return(EXIT_SUCCESS);
+  return(EXIT_SUCCESS);
 }
