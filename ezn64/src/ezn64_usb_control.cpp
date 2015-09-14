@@ -1,13 +1,10 @@
 /*********************************************************************************************//**
-* @file EZN64_usb_control.cpp
-*
-* main ezn64_usb control source
+* @file ezn64_usb_control.cpp
 *
 * Copyright (c)
-* Frantisek Durovsky
 * Department of Robotics
 * Technical University Kosice
-* April 2015
+* September 2015
 *
 * All rights reserved.
 *
@@ -32,29 +29,20 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 * *********************************************************************************************/
 
-#include <ezn64_usb_control.h>
+/* Author: Frantisek Durovsky */
 
-static const double READ_INPUT_BUFFER_PERIOD = 0.1;
+#include <ezn64_usb_control.h>
 
 int 
 main(int argc, char *argv[])
 {
-    ros::init(argc, argv, "ezn64_usb_control");
-    ros::NodeHandle nh;
+  ros::init(argc, argv, "ezn64_usb_control");
+  ros::NodeHandle nh;
 
-    EZN64_usb gripper(&nh);
+  //Create gripper object instance
+  ezn64::EZN64_usb gripper(&nh);
+                
+  ros::spin();
 
-    ros::ServiceServer reference_service         = nh.advertiseService("ezn64/reference", &EZN64_usb::referenceCallback, &gripper);
-    ros::ServiceServer set_position_service      = nh.advertiseService("ezn64/set_position", &EZN64_usb::setPositionCallback, &gripper);
-    ros::ServiceServer get_error_service         = nh.advertiseService("ezn64/get_error", &EZN64_usb::getErrorCallback, &gripper);
-    ros::ServiceServer get_position_service      = nh.advertiseService("ezn64/get_position", &EZN64_usb::getPositionCallback, &gripper);
-    ros::ServiceServer acknowledge_error_service = nh.advertiseService("ezn64/acknowledge_error", &EZN64_usb::acknowledgeErrorCallback, &gripper);
-    ros::ServiceServer stop_service              = nh.advertiseService("ezn64/stop", &EZN64_usb::stopCallback, &gripper);
-
-    gripper.joint_pub = nh.advertise<sensor_msgs::JointState>("joint_states", 1); 
-    ros::Timer timer = nh.createTimer(ros::Duration(READ_INPUT_BUFFER_PERIOD), &EZN64_usb::timerCallback, &gripper);
-    
-    ros::spin();
-
-    return(EXIT_SUCCESS);
+  return(EXIT_SUCCESS);
 }
