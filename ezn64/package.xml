@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <package>
   <name>ezn64</name>
-  <version>1.1.0</version>
+  <version>1.2.0</version>
   <description> Xacro model and usb driver for basic communication with Schunk EZN64 gripper </description>
   
   <maintainer email="durovsky987@gmail.com">durovsky</maintainer>
