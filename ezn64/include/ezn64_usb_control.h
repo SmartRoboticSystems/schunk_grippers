@@ -61,8 +61,10 @@ public:
   EZN64_usb(ros::NodeHandle *nh);
   
   ~EZN64_usb();
-
-  /** \brief Reference service callback */
+     
+private:
+    
+    /** \brief Reference service callback */
   bool referenceCallback(ezn64::reference::Request &req,
                          ezn64::reference::Response &res);
  
@@ -88,9 +90,7 @@ public:
 
   /** \brief Timer callback to read USB input buffer periodically */
   void timerCallback(const ros::TimerEvent &event);  
-     
-private:
-    
+  
   /** \brief Send CMD REFERENCE(0x92) command to the gripper */
   void reference(libusb_device_handle *handle);
   
