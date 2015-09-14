@@ -4,7 +4,7 @@
 * Copyright (c)
 * Department of Robotics
 * Technical University Kosice
-* April 2015
+* September 2015
 *
 * All rights reserved.
 *
@@ -196,7 +196,7 @@ EZN64_usb::getError(libusb_device_handle *handle)
       ROS_WARN("EZN64: Not get_state response");
             
       //Reset periodic position reading
-      getPeriodicPositionUpdate(handle);
+      getPeriodicPositionUpdate(handle, update_frequency);
       return(0xff) ;
     }
   }
@@ -310,7 +310,7 @@ EZN64_usb::setPositionCallback(ezn64::set_position::Request &req,
 {
   ROS_INFO("EZN64: Set position Cmd recieved");
 
-  //Check if goal request respects gripper limits <0-69> mm
+  //Check if goal request respects gripper limits <0-12> mm
   if ((req.goal_position >= MIN_GRIPPER_POS_LIMIT)
      && (req.goal_position <= MAX_GRIPPER_POS_LIMIT))
   {

@@ -4,7 +4,7 @@
 * Copyright (c)
 * Department of Robotics
 * Technical University Kosice
-* April 2015
+* September 2015
 *
 * All rights reserved.
 *
