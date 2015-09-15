@@ -47,35 +47,22 @@ PG70_serial::PG70_serial(ros::NodeHandle *nh) :
   nh->getParam("pg70/portname", port_name_);
   nh->getParam("pg70/baudrate", baudrate_);
   nh->getParam("pg70/gripper_id", gripper_id_);
-  nh->getParam("pg70/update_frequency", update_frequency);
-
+  
   //Initialize and open serial port
   com_port_ = new serial::Serial (port_name_, (uint32_t)baudrate_, serial::Timeout::simpleTimeout(100));
   if (com_port_->isOpen())
   {
     ROS_INFO_STREAM("PG70: Serial port " << port_name_ << " openned");
-    
-    //Initialize user interface
-    ros::ServiceServer reference_service         = nh->advertiseService("pg70/reference", &PG70_serial::referenceCallback, this);
-    ros::ServiceServer set_position_service      = nh->advertiseService("pg70/set_position", &PG70_serial::setPositionCallback, this);
-    ros::ServiceServer get_error_service         = nh->advertiseService("pg70/get_error", &PG70_serial::getErrorCallback, this);
-    ros::ServiceServer get_position_service      = nh->advertiseService("pg70/get_position", &PG70_serial::getPositionCallback, this);
-    ros::ServiceServer acknowledge_error_service = nh->advertiseService("pg70/acknowledge_error", &PG70_serial::acknowledgeErrorCallback, this);
-    ros::ServiceServer stop_service              = nh->advertiseService("pg70/stop", &PG70_serial::stopCallback, this);
-
-    //check if update_frequency param from the launch file is within allowed range
-    if((update_frequency > MIN_UPDATE_FREQUENCY) && (update_frequency < MAX_UPDATE_FREQUENCY))
-    {
-      joint_pub = nh->advertise<sensor_msgs::JointState>("joint_states", 1); 
-      ros::Timer timer = nh->createTimer(ros::Duration(1/update_frequency), &PG70_serial::timerCallback, this);
-      getPeriodicPositionUpdate(com_port_, update_frequency);
-    }
+      
     //Get initial state and discard input buffer
     while(pg70_error_ == 0xff)
     {
       pg70_error_ = getError(com_port_);
       ros::Duration(WAIT_FOR_RESPONSE_INTERVAL).sleep();
     }
+    
+    //Start periodic gripper state reading 
+    getPeriodicPositionUpdate(com_port_, TF_UPDATE_PERIOD);
   }
   else
     ROS_ERROR_STREAM("PG70: Serial port " << port_name_ << " not opened");
@@ -187,13 +174,13 @@ PG70_serial::getError(serial::Serial *port)
         case 0x78: ROS_ERROR("PG70: Error: 0x78 detected: Motor temp"); break;
       }
       //Re-start periodic position reading 
-      getPeriodicPositionUpdate(com_port_, update_frequency);
+      getPeriodicPositionUpdate(com_port_, TF_UPDATE_PERIOD);
       return((uint8_t)pg70_error_);
     }
     else
     {
       //Re-start periodic position reading 
-      getPeriodicPositionUpdate(com_port_, update_frequency);
+      getPeriodicPositionUpdate(com_port_, TF_UPDATE_PERIOD);
       return(0xff) ;
     }
   }  
@@ -207,6 +194,54 @@ PG70_serial::acknowledgeError(serial::Serial *port)
   output.push_back(gripper_id_);   //module id
   output.push_back(0x01);          //Data Length
   output.push_back(0x8b);          //Command CMD ACK
+
+  //Checksum calculation
+  uint16_t crc = 0;
+
+  for(size_t i = 0; i < output.size(); i++)
+    crc = CRC16(crc,output[i]);
+
+  //Add checksum to the output buffer
+  output.push_back(crc & 0x00ff);
+  output.push_back((crc & 0xff00) >> 8);
+
+  //Send message to the module
+  port->write(output);
+}
+
+void
+PG70_serial::setPosition(serial::Serial *port, int goal_position, int velocity, int acceleration)
+{
+  ROS_INFO_STREAM("PG70: Moving from: " << act_position_ << " [mm] to " << goal_position << " [mm]");
+  
+  std::vector<uint8_t> output;
+  output.push_back(0x05);                //message from master to module
+  output.push_back(gripper_id_);          //module id
+  output.push_back(0x0D);                //D-Len
+  output.push_back(0xb0);                //Command mov pos
+
+  //Position <0-69>mm
+  unsigned int IEEE754_bytes[4];
+  float_to_IEEE_754(goal_position,IEEE754_bytes);
+
+  output.push_back(IEEE754_bytes[0]);    //Position first byte
+  output.push_back(IEEE754_bytes[1]);    //Position second byte
+  output.push_back(IEEE754_bytes[2]);    //Position third byte
+  output.push_back(IEEE754_bytes[3]);    //Position fourth byte
+
+  //Velocity<0-82>mm/s
+  float_to_IEEE_754(velocity, IEEE754_bytes);
+  output.push_back(IEEE754_bytes[0]);    //Velocity first byte
+  output.push_back(IEEE754_bytes[1]);    //Velocity second byte
+  output.push_back(IEEE754_bytes[2]);    //Velocity third byte
+  output.push_back(IEEE754_bytes[3]);    //Velocity fourth byte
+
+  //Acceleration<0-320>mm/s2
+  float_to_IEEE_754(acceleration, IEEE754_bytes);
+  output.push_back(IEEE754_bytes[0]);    //Acceleration first byte
+  output.push_back(IEEE754_bytes[1]);    //Acceleration second byte
+  output.push_back(IEEE754_bytes[2]);    //Acceleration third byte
+  output.push_back(IEEE754_bytes[3]);    //Acceleration fourth byte
 
   //Checksum calculation
   uint16_t crc = 0;
@@ -264,54 +299,40 @@ PG70_serial::getPosition(serial::Serial *port)
       {
         uint8_t raw[4] = {input[i+5], input[i+4], input[i+3], input[i+2]};
         act_position = IEEE_754_to_float(raw);
-        std::cout << "PG70 INFO: Actual position: " << act_position << " [mm]" << std::endl;
+        ROS_INFO_STREAM("PG70 INFO: Actual position: " << act_position << " [mm]");
         return(act_position);
       }
       else if  ((input[i] == 0x05) && (input[i+1] == 0x94))
       {
         uint8_t raw[4] = {input[i+5], input[i+4], input[i+3], input[i+2]};
         act_position = IEEE_754_to_float(raw);
-        std::cout << "PG70 INFO: Actual position: " << act_position << " [mm]" << std::endl;
+        ROS_INFO_STREAM("PG70 INFO: Actual position: " << act_position << " [mm]");
         return(act_position);
       }
     }
   }
 }
 
-float
-PG70_serial::setPosition(serial::Serial *port, int goal_position, int velocity, int acceleration)
+void
+PG70_serial::getPeriodicPositionUpdate(serial::Serial *port, float update_period)
 {
   std::vector<uint8_t> output;
-  output.push_back(0x05);                //message from master to module
-  output.push_back(gripper_id_);          //module id
-  output.push_back(0x0D);                //D-Len
-  output.push_back(0xb0);                //Command mov pos
-
-  //Position <0-69>mm
+  output.push_back(0x05);                 //message from master to the module
+  output.push_back(gripper_id_);          //gripper id
+  output.push_back(0x06);                 //Data Length
+  output.push_back(0x95);                 //Command get state
+    
   unsigned int IEEE754_bytes[4];
-  float_to_IEEE_754(goal_position,IEEE754_bytes);
-
-  output.push_back(IEEE754_bytes[0]);    //Position first byte
-  output.push_back(IEEE754_bytes[1]);    //Position second byte
-  output.push_back(IEEE754_bytes[2]);    //Position third byte
-  output.push_back(IEEE754_bytes[3]);    //Position fourth byte
-
-  //Velocity<0-82>mm/s
-  float_to_IEEE_754(velocity, IEEE754_bytes);
-  output.push_back(IEEE754_bytes[0]);    //Velocity first byte
-  output.push_back(IEEE754_bytes[1]);    //Velocity second byte
-  output.push_back(IEEE754_bytes[2]);    //Velocity third byte
-  output.push_back(IEEE754_bytes[3]);    //Velocity fourth byte
-
-  //Acceleration<0-320>mm/s2
-  float_to_IEEE_754(acceleration, IEEE754_bytes);
-  output.push_back(IEEE754_bytes[0]);    //Acceleration first byte
-  output.push_back(IEEE754_bytes[1]);    //Acceleration second byte
-  output.push_back(IEEE754_bytes[2]);    //Acceleration third byte
-  output.push_back(IEEE754_bytes[3]);    //Acceleration fourth byte
+  float_to_IEEE_754(update_period, IEEE754_bytes);
+  
+  output.push_back(IEEE754_bytes[0]);    //period first byte
+  output.push_back(IEEE754_bytes[1]);    //period second byte
+  output.push_back(IEEE754_bytes[2]);    //period third byte
+  output.push_back(IEEE754_bytes[3]);    //period fourth byte
+  output.push_back(0x07);
 
   //Checksum calculation
-  uint16_t crc = 0;
+  uint16_t crc = 0;                      
 
   for(size_t i = 0; i < output.size(); i++)
     crc = CRC16(crc,output[i]);
@@ -319,9 +340,9 @@ PG70_serial::setPosition(serial::Serial *port, int goal_position, int velocity, 
   //Add checksum to the output buffer
   output.push_back(crc & 0x00ff);
   output.push_back((crc & 0xff00) >> 8);
-
-  //Send message to the module
-  port->write(output);
+  
+  //Send get_state message to the module 
+  port->write(output);   
 }
 
 void
@@ -347,29 +368,6 @@ PG70_serial::stop(serial::Serial *port)
   port->write(output);
 }
 
-void
-PG70_serial::getPeriodicPositionUpdate(serial::Serial *port, float frequency)
-{
-  //Convert frequency to period
-  float period = 1/frequency;
-   
-  std::vector<uint8_t> output;
-  output.push_back(0x06);                 //Data Length
-  output.push_back(0x95);                 //Command get state
-    
-  unsigned int IEEE754_bytes[4];
-  float_to_IEEE_754(period, IEEE754_bytes);
-      
-  output.push_back(IEEE754_bytes[0]);    //period first byte
-  output.push_back(IEEE754_bytes[1]);    //period second byte
-  output.push_back(IEEE754_bytes[2]);    //period third byte
-  output.push_back(IEEE754_bytes[3]);    //period fourth byte
-  output.push_back(0x07);
-
-  //Send get_state message to the module 
-  port->write(output);   
-}
-
 /////////////////////////////////////////////////////////////
 //CALLBACKS
 /////////////////////////////////////////////////////////////
@@ -386,8 +384,7 @@ bool
 PG70_serial::setPositionCallback(pg70::set_position::Request &req,
                                  pg70::set_position::Response &res)
 {
-  ROS_INFO("PG70: Set position Cmd recieved");
-
+  
   //Check if goal request respects position limits <0-69> mm
   if ((req.goal_position >= MIN_GRIPPER_POS_LIMIT) && (req.goal_position < MAX_GRIPPER_POS_LIMIT))
   {
@@ -397,8 +394,7 @@ PG70_serial::setPositionCallback(pg70::set_position::Request &req,
       //Check if goal request respects acceleration limits <0-320> mm/s2  
       if((req.goal_acceleration > MIN_GRIPPER_ACC_LIMIT) && (req.goal_acceleration <= MAX_GRIPPER_ACC_LIMIT))
       {
-        ROS_INFO("PG70: Goal accepted ");
-        act_position_ = setPosition(com_port_,req.goal_position, req.goal_velocity, req.goal_acceleration);
+        setPosition(com_port_,req.goal_position, req.goal_velocity, req.goal_acceleration);
         res.goal_accepted = true;
       }
       else
@@ -463,8 +459,8 @@ void
 PG70_serial::timerCallback(const ros::TimerEvent &event)
 {
   std::vector<uint8_t> input;
-  com_port_->read(input,32);
-
+  com_port_->read(input,INPUT_BUFFER_SIZE);
+ 
   //Detect position reached response
   for(size_t i = 0; i < input.size(); i++)
   {
@@ -486,6 +482,8 @@ PG70_serial::timerCallback(const ros::TimerEvent &event)
       act_position_ = IEEE_754_to_float(raw);
     }
   }
+  
+  ROS_DEBUG_STREAM("Actual position: " << act_position_);
   
   //Publish TF
   pg70_joint_state_.header.stamp = ros::Time::now();

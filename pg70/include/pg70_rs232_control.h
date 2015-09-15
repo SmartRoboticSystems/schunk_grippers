@@ -61,61 +61,61 @@ public:
   
   ~PG70_serial();
   
-private:
-
-  /** \brief Send CMD REFERENCE(0x92) command to the gripper */
-  void reference(serial::Serial *port);
-  
   /** \brief Reference service callback */
   bool referenceCallback(pg70::reference::Request &req,
                          pg70::reference::Response &res);
   
-  /** \brief Read actual error by GET STATE(0x95) command */
-  uint8_t getError(serial::Serial *port);
-  
   /** \brief GetError service callback */
   bool getErrorCallback(pg70::get_error::Request &req,
                         pg70::get_error::Response &res);
-
-  /** \brief Read actual position by GET_STATE(0x95) command */
-  float getPosition(serial::Serial *port);
   
   /** \brief GetPosition service callback */
   bool getPositionCallback(pg70::get_position::Request &req,
                            pg70::get_position::Response &res);
 
-  /** \brief Send MOV_POS(0x80) command to the gripper */
-  float setPosition(serial::Serial *port, int goal_position, int velocity, int acceleration);
-  
-  /** \brief SetPosition service callback */
+   /** \brief SetPosition service callback */
   bool setPositionCallback(pg70::set_position::Request &req,
                            pg70::set_position::Response &res);
   
-  /** \brief Send CMD_ACK(0x8b) command to the gripper */
-  void acknowledgeError(serial::Serial *port);
-  
-  /** \brief AcknowledgeError service callback */
+   /** \brief AcknowledgeError service callback */
   bool acknowledgeErrorCallback(pg70::acknowledge_error::Request &req,
                                 pg70::acknowledge_error::Response &res);
-  
-  /** \brief Send CMD_STOP(0x91) to stop moving gripper */
-  void stop(serial::Serial *port);
   
   /** \brief Stop service callback */
   bool stopCallback(pg70::stop::Request &req,
                     pg70::stop::Response &res);
   
-  /** \brief Set periodic position reading by GET_STATE(0x95) command */
-  void getPeriodicPositionUpdate(serial::Serial *port, float update_frequency);
- 
-  /** \brief Timer callback to read serial input buffer periodically */
+   /** \brief Timer callback to read serial input buffer periodically */
   void timerCallback(const ros::TimerEvent &event);  
-   
+  
   /** \brief Gripper joint state publisher */
   ros::Publisher joint_pub;
   
-  /** \brief Timer to read USB input buffer periodically */
-  ros::Timer timer;  
+  /** \brief TF update period in seconds */
+  static const float TF_UPDATE_PERIOD = 0.1;   
+   
+private:
+
+  /** \brief Send CMD REFERENCE(0x92) command to the gripper */
+  void reference(serial::Serial *port);
+   
+  /** \brief Read actual error by GET STATE(0x95) command */
+  uint8_t getError(serial::Serial *port);
+    
+  /** \brief Read actual position by GET_STATE(0x95) command */
+  float getPosition(serial::Serial *port);
+  
+  /** \brief Send MOV_POS(0x80) command to the gripper */
+  void setPosition(serial::Serial *port, int goal_position, int velocity, int acceleration);
+   
+  /** \brief Send CMD_ACK(0x8b) command to the gripper */
+  void acknowledgeError(serial::Serial *port);
+    
+  /** \brief Send CMD_STOP(0x91) to stop moving gripper */
+  void stop(serial::Serial *port);
+    
+  /** \brief Set periodic position reading by GET_STATE(0x95) command */
+  void getPeriodicPositionUpdate(serial::Serial *port, float update_frequency);
   
   /** \brief Function to determine checksum*/
   uint16_t CRC16(uint16_t crc, uint16_t data);   
@@ -129,8 +129,7 @@ private:
   //Launch params
   int gripper_id_;
   std::string port_name_;
-  int baudrate_;
-  double update_frequency;
+  int baudrate_;  
 
   //Gripper state variables
   float act_position_;
@@ -141,8 +140,6 @@ private:
   serial::Serial *com_port_;
   
   //Consts
-  static const double MIN_UPDATE_FREQUENCY = 0;
-  static const double MAX_UPDATE_FREQUENCY = 100;
   static const double MIN_GRIPPER_POS_LIMIT = 0;
   static const double MAX_GRIPPER_POS_LIMIT = 69;
   static const double MIN_GRIPPER_VEL_LIMIT = 0;
@@ -150,8 +147,8 @@ private:
   static const double MIN_GRIPPER_ACC_LIMIT = 0;
   static const double MAX_GRIPPER_ACC_LIMIT = 320;
   static const double WAIT_FOR_RESPONSE_INTERVAL = 0.5;
-  static const double INPUT_BUFFER_SIZE = 512;
-  static const int    URDF_SCALE_FACTOR = 1000;
+  static const double INPUT_BUFFER_SIZE = 64;
+  static const int    URDF_SCALE_FACTOR = 2000;
     
 };  //PG70_serial
 }   //pg70

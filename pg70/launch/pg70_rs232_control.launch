@@ -5,7 +5,6 @@
       gripper_id: 12
       portname: /dev/ttyS0
       baudrate: 9600  
-      update_frequency: 10
     </rosparam>  
   </node>
   

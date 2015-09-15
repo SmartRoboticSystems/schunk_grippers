@@ -41,7 +41,18 @@ main(int argc, char *argv[])
 
   //Create gripper object instance
   pg70::PG70_serial gripper(&nh);
-        
+     
+  //Initialize user interface
+  ros::ServiceServer reference_service         = nh.advertiseService("pg70/reference", &pg70::PG70_serial::referenceCallback, &gripper);
+  ros::ServiceServer set_position_service      = nh.advertiseService("pg70/set_position", &pg70::PG70_serial::setPositionCallback, &gripper);
+  ros::ServiceServer get_error_service         = nh.advertiseService("pg70/get_error", &pg70::PG70_serial::getErrorCallback, &gripper);
+  ros::ServiceServer get_position_service      = nh.advertiseService("pg70/get_position", &pg70::PG70_serial::getPositionCallback, &gripper);
+  ros::ServiceServer acknowledge_error_service = nh.advertiseService("pg70/acknowledge_error", &pg70::PG70_serial::acknowledgeErrorCallback, &gripper);
+  ros::ServiceServer stop_service              = nh.advertiseService("pg70/stop", &pg70::PG70_serial::stopCallback, &gripper);
+  
+  ros::Timer timer = nh.createTimer(ros::Duration(gripper.TF_UPDATE_PERIOD), &pg70::PG70_serial::timerCallback, &gripper);
+  gripper.joint_pub = nh.advertise<sensor_msgs::JointState>("joint_states", 1);  
+  
   ros::spin();
 
   return(EXIT_SUCCESS);
