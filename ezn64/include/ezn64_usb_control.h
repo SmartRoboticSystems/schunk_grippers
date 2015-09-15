@@ -61,62 +61,62 @@ public:
   EZN64_usb(ros::NodeHandle *nh);
   
   ~EZN64_usb();
-     
-private:
-    
-  /** \brief Send CMD REFERENCE(0x92) command to the gripper */
-  void reference(libusb_device_handle *handle);
   
   /** \brief Reference service callback */
   bool referenceCallback(ezn64::reference::Request &req,
                          ezn64::reference::Response &res);
- 
-  /** \brief Read actual error by GET STATE(0x95) command */
-  uint8_t getError(libusb_device_handle *handle);
-  
+     
   /** \brief GetError service callback */
   bool getErrorCallback(ezn64::get_error::Request &req,
                         ezn64::get_error::Response &res);
   
-  /** \brief Send CMD_ACK(0x8b) command to the gripper */
-  void acknowledgeError(libusb_device_handle *handle);
-  
-  /** \brief AcknowledgeError service callback */
+   /** \brief AcknowledgeError service callback */
   bool acknowledgeErrorCallback(ezn64::acknowledge_error::Request &req,
                                 ezn64::acknowledge_error::Response &res);
-
-  /** \brief Read actual position by GET_STATE(0x95) command */
-  float getPosition(libusb_device_handle *handle);
-  
-  /** \brief GetPosition service callback */
-  bool getPositionCallback(ezn64::get_position::Request &req,
-                           ezn64::get_position::Response &res);
-
-  /** \brief Send MOV_POS(0x80) command to the gripper */
-  void setPosition(libusb_device_handle *handle, float goal_position);
   
   /** \brief SetPosition service callback */
   bool setPositionCallback(ezn64::set_position::Request &req,
                            ezn64::set_position::Response &res);
   
-  /** \brief Send CMD_STOP(0x91) to stop moving gripper */
-  void stop(libusb_device_handle *handle);
+  /** \brief GetPosition service callback */
+  bool getPositionCallback(ezn64::get_position::Request &req,
+                           ezn64::get_position::Response &res);
   
-  /** \brief Stop service callback */
+   /** \brief Stop service callback */
   bool stopCallback(ezn64::stop::Request &req,
                     ezn64::stop::Response &res);
   
-  /** \brief Set periodic position reading by GET_STATE(0x95) command */
-  void getPeriodicPositionUpdate(libusb_device_handle *handle, float period);
-
-  /** \brief Timer callback to read USB input buffer periodically */
+   /** \brief Timer callback to read USB input buffer periodically */
   void timerCallback(const ros::TimerEvent &event);  
   
-  /** \brief Gripper joint state publisher */
+   /** \brief Gripper joint state publisher */
   ros::Publisher joint_pub;
   
-  /** \brief Timer to read USB input buffer periodically */
-  ros::Timer timer;  
+    /** \brief TF update period in seconds */
+  static const float TF_UPDATE_PERIOD = 0.1;   
+  
+private:
+    
+  /** \brief Send CMD REFERENCE(0x92) command to the gripper */
+  void reference(libusb_device_handle *handle);
+   
+  /** \brief Read actual error by GET STATE(0x95) command */
+  uint8_t getError(libusb_device_handle *handle);
+    
+  /** \brief Send CMD_ACK(0x8b) command to the gripper */
+  void acknowledgeError(libusb_device_handle *handle);
+  
+  /** \brief Read actual position by GET_STATE(0x95) command */
+  float getPosition(libusb_device_handle *handle);
+  
+  /** \brief Send MOV_POS(0x80) command to the gripper */
+  void setPosition(libusb_device_handle *handle, float goal_position);
+    
+  /** \brief Send CMD_STOP(0x91) to stop moving gripper */
+  void stop(libusb_device_handle *handle);
+   
+  /** \brief Set periodic position reading by GET_STATE(0x95) command */
+  void getPeriodicPositionUpdate(libusb_device_handle *handle, float period);
   
   /** \brief Function looking for gripper controller in list of available 
       USB devices. In case of success, pointer to device is returned */
@@ -160,8 +160,6 @@ private:
   libusb_device_handle *ezn64_handle_;
   
   //Consts 
-  static const double MIN_UPDATE_FREQUENCY = 0;
-  static const double MAX_UPDATE_FREQUENCY = 100;
   static const double MIN_GRIPPER_POS_LIMIT = 0;
   static const double MAX_GRIPPER_POS_LIMIT = 12;
   static const double WAIT_FOR_RESPONSE_INTERVAL = 0.5;

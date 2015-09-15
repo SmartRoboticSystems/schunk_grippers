@@ -46,8 +46,7 @@ EZN64_usb::EZN64_usb(ros::NodeHandle *nh) :
   nh->getParam("ezn64/gripper_id", gripper_id_);
   nh->getParam("ezn64/vendor_id",  vendor_id_);
   nh->getParam("ezn64/product_id", product_id_);
-  nh->getParam("ezn64/update_frequency", update_frequency);
-    
+     
   //Look for Schunk EZN64 controller on USB
   ezn64_dev_ = find_ezn64_dev(vendor_id_, product_id_);
   print_libusb_dev(ezn64_dev_);
@@ -56,14 +55,6 @@ EZN64_usb::EZN64_usb(ros::NodeHandle *nh) :
   if(ezn64_dev_ != 0)
   {   
     ezn64_handle_ = open_ezn64_dev(ezn64_dev_);
-
-    //Advertise services for gripper control
-    ros::ServiceServer reference_service         = nh->advertiseService("ezn64/reference", &EZN64_usb::referenceCallback, this);
-    ros::ServiceServer set_position_service      = nh->advertiseService("ezn64/set_position", &EZN64_usb::setPositionCallback, this);
-    ros::ServiceServer get_error_service         = nh->advertiseService("ezn64/get_error", &EZN64_usb::getErrorCallback, this);
-    ros::ServiceServer get_position_service      = nh->advertiseService("ezn64/get_position", &EZN64_usb::getPositionCallback, this);
-    ros::ServiceServer acknowledge_error_service = nh->advertiseService("ezn64/acknowledge_error", &EZN64_usb::acknowledgeErrorCallback, this);
-    ros::ServiceServer stop_service              = nh->advertiseService("ezn64/stop", &EZN64_usb::stopCallback, this);
     
     //Get initial state and discard input buffer
     while (ezn64_error_ == 0xff)
@@ -75,14 +66,8 @@ EZN64_usb::EZN64_usb(ros::NodeHandle *nh) :
     //If emergency stop error occured, acknowledge
     if(ezn64_error_ == 0xd9) acknowledgeError(ezn64_handle_);
   
-    //check if update_frequency param from the launch file is within allowed range
-    if((update_frequency > MIN_UPDATE_FREQUENCY) && (update_frequency < MAX_UPDATE_FREQUENCY))
-    {
-      //If within a range start periodic position reading and TF broadcasting
-      getPeriodicPositionUpdate(ezn64_handle_, update_frequency);
-      joint_pub = nh->advertise<sensor_msgs::JointState>("joint_states", 1);
-      timer = nh->createTimer(ros::Duration(1/update_frequency), &EZN64_usb::timerCallback, this);
-    }
+    //Start periodic gripper position reading
+    getPeriodicPositionUpdate(ezn64_handle_, TF_UPDATE_PERIOD);     
   }
 }
 
@@ -101,27 +86,6 @@ EZN64_usb::reference(libusb_device_handle *handle)
 
   //Send message to the gripper
   usb_write(handle, output);
-}
-
-void
-EZN64_usb::setPosition(libusb_device_handle *handle, float goal_position)
-{
-  ROS_INFO_STREAM("EZN64: Moving from: " << act_position_ << " [mm] to " << goal_position << " [mm]");
-
-  std::vector<uint8_t> output;
-  output.push_back(0x05);                //Data Length
-  output.push_back(0xb0);                //Command mov pos
-
-  unsigned int IEEE754_bytes[4];
-  float_to_IEEE_754(goal_position, IEEE754_bytes);
-
-  output.push_back(IEEE754_bytes[0]);    //Position first byte
-  output.push_back(IEEE754_bytes[1]);    //Position second byte
-  output.push_back(IEEE754_bytes[2]);    //Position third byte
-  output.push_back(IEEE754_bytes[3]);    //Position fourth byte
-
-  //Send message to the module and recieve response
-  usb_write(handle, output);       
 }
 
 uint8_t
@@ -187,7 +151,7 @@ EZN64_usb::getError(libusb_device_handle *handle)
         case 0x78: ROS_ERROR("EZN64: Error: 0x78 detected: Motor temp "); break;
       }
       //Reset periodic position reading
-       getPeriodicPositionUpdate(handle, update_frequency);
+       getPeriodicPositionUpdate(handle, TF_UPDATE_PERIOD);
    
        return((uint8_t)ezn64_error_);
     }
@@ -196,11 +160,43 @@ EZN64_usb::getError(libusb_device_handle *handle)
       ROS_WARN("EZN64: Not get_state response");
             
       //Reset periodic position reading
-      getPeriodicPositionUpdate(handle, update_frequency);
+      getPeriodicPositionUpdate(handle, TF_UPDATE_PERIOD);
       return(0xff) ;
     }
   }
   output.clear();
+}
+
+void
+EZN64_usb::acknowledgeError(libusb_device_handle *handle)
+{
+  std::vector<uint8_t> output;
+  output.push_back(0x01);      //Data Length
+  output.push_back(0x8b);      //Command cmd ack
+
+  //Send message to the module
+  usb_write(handle, output);
+}
+
+void
+EZN64_usb::setPosition(libusb_device_handle *handle, float goal_position)
+{
+  ROS_INFO_STREAM("EZN64: Moving from: " << act_position_ << " [mm] to " << goal_position << " [mm]");
+
+  std::vector<uint8_t> output;
+  output.push_back(0x05);                //Data Length
+  output.push_back(0xb0);                //Command mov pos
+
+  unsigned int IEEE754_bytes[4];
+  float_to_IEEE_754(goal_position, IEEE754_bytes);
+
+  output.push_back(IEEE754_bytes[0]);    //Position first byte
+  output.push_back(IEEE754_bytes[1]);    //Position second byte
+  output.push_back(IEEE754_bytes[2]);    //Position third byte
+  output.push_back(IEEE754_bytes[3]);    //Position fourth byte
+
+  //Send message to the module and recieve response
+  usb_write(handle, output);       
 }
 
 float
@@ -233,14 +229,14 @@ EZN64_usb::getPosition(libusb_device_handle *handle)
       {
         uint8_t raw[4] = {input[i+5], input[i+4], input[i+3], input[i+2]};
         act_position = IEEE_754_to_float(raw);
-        ROS_INFO_STREAM("EZN64 INFO: Actual position: " << act_position);
+        ROS_INFO_STREAM("EZN64 INFO: Actual position: " << act_position << "[mm]");
         return(act_position);
       }
       else if ((input[i] == 0x05) && (input[i+1] == 0x94))
       {
         uint8_t raw[4] = {input[i+5], input[i+4], input[i+3], input[i+2]};
         act_position = IEEE_754_to_float(raw);
-        ROS_INFO_STREAM("EZN64 INFO: Actual position: " << act_position);
+        ROS_INFO_STREAM("EZN64 INFO: Actual position: " << act_position << "[mm]");
         return(act_position);
       }
     }
@@ -248,17 +244,14 @@ EZN64_usb::getPosition(libusb_device_handle *handle)
 }
 
 void
-EZN64_usb::getPeriodicPositionUpdate(libusb_device_handle *handle, float frequency)
+EZN64_usb::getPeriodicPositionUpdate(libusb_device_handle *handle, float update_period)
 {
-  //Convert frequency to period
-  float period = 1/frequency;
-   
   std::vector<uint8_t> output;
   output.push_back(0x06);                 //Data Length
   output.push_back(0x95);                 //Command get state
     
   unsigned int IEEE754_bytes[4];
-  float_to_IEEE_754(period, IEEE754_bytes);
+  float_to_IEEE_754(update_period, IEEE754_bytes);
       
   output.push_back(IEEE754_bytes[0]);    //period first byte
   output.push_back(IEEE754_bytes[1]);    //period second byte
@@ -281,17 +274,6 @@ EZN64_usb::stop(libusb_device_handle *handle)
   usb_write(handle, output);
 }
 
-void
-EZN64_usb::acknowledgeError(libusb_device_handle *handle)
-{
-  std::vector<uint8_t> output;
-  output.push_back(0x01);      //Data Length
-  output.push_back(0x8b);      //Command cmd ack
-
-  //Send message to the module
-  usb_write(handle, output);
-}
-
 ///////////////////////////////////////////////////////////////
 //CALLBACKS
 ///////////////////////////////////////////////////////////////
@@ -308,8 +290,6 @@ bool
 EZN64_usb::setPositionCallback(ezn64::set_position::Request &req,
                                     ezn64::set_position::Response &res)
 {
-  ROS_INFO("EZN64: Set position Cmd recieved");
-
   //Check if goal request respects gripper limits <0-12> mm
   if ((req.goal_position >= MIN_GRIPPER_POS_LIMIT)
      && (req.goal_position <= MAX_GRIPPER_POS_LIMIT))
@@ -328,7 +308,7 @@ bool
 EZN64_usb::getErrorCallback(ezn64::get_error::Request &req,
                             ezn64::get_error::Response &res)
 {
-  ROS_INFO:("EZN64: Get state request recieved");
+  ROS_INFO:("EZN64: Get Error request recieved");
   res.error_code = getError(ezn64_handle_);
 }
 

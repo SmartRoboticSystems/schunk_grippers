@@ -5,7 +5,6 @@
       vendor_id: 7358
       product_id: 371
       gripper_id: 10
-      update_frequency: 10
     </rosparam>  
   </node>
   
