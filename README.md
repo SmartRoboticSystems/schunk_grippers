@@ -1,5 +1,5 @@
 # schunk_grippers
-Schunk_PG70 and Schunk_EZN64 gripper models and communication nodes (RS232, USB)
+PG70 and EZN64 Xacro models and drivers for serial communication (RS232, USB)
 
 ##PG70 package
 - uses [ROS serial library](http://wiki.ros.org/serial) package to interface pg70 controller over serial port
