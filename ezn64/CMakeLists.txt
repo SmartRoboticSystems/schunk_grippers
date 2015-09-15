@@ -8,19 +8,15 @@ include_directories(SYSTEM ${LIBUSB1_INCLUDE_DIRS})
 find_package(catkin REQUIRED COMPONENTS
   roscpp
   message_generation
-)
+  )
 
 include_directories(${catkin_INCLUDE_DIRS}
-		    ${PROJECT_SOURCE_DIR}/include/
-		    )
+                    ${PROJECT_SOURCE_DIR}/include/)
 
 SET(SOURCES ${PROJECT_SOURCE_DIR}/src/ezn64_usb_control.cpp
-	    ${PROJECT_SOURCE_DIR}/src/ezn64_usb_control_lib.cpp
-	    )
-	    
+            ${PROJECT_SOURCE_DIR}/src/ezn64_usb_control_lib.cpp)
 
-SET(HEADERS ${PROJECT_SOURCE_DIR}/include/ezn64_usb_control.h
-	    )
+SET(HEADERS ${PROJECT_SOURCE_DIR}/include/ezn64_usb_control.h)
 
 add_service_files(FILES reference.srv
                         set_position.srv
@@ -32,15 +28,11 @@ add_service_files(FILES reference.srv
 generate_messages(DEPENDENCIES)
 
 catkin_package(
-  DEPENDS
-  INCLUDE_DIRS
+  INCLUDE_DIRS include
   CATKIN_DEPENDS roscpp 
   LIBRARIES
-  roscpp
-
-)
+  DEPENDS libusb-1.0)
 
 add_executable(${PROJECT_NAME} ${SOURCES} ${HEADERS})
-add_dependencies(${PROJECT_NAME} ${catkin_EXPORTED_TARGETS})
-target_link_libraries(${PROJECT_NAME} ${ROS_LIBRARIES} ${catkin_LIBRARIES} ${LIBUSB1_LIBRARIES}
-)
+add_dependencies(${PROJECT_NAME} ${catkin_EXPORTED_TARGETS} ezn64_gencpp)
+target_link_libraries(${PROJECT_NAME} ${ROS_LIBRARIES} ${catkin_LIBRARIES} ${LIBUSB1_LIBRARIES})
