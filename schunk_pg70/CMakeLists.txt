@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 2.8.3)
-project(pg70)
+project(schunk_pg70)
 
 find_package(catkin REQUIRED COMPONENTS
   roscpp
