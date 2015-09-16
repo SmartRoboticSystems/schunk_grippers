@@ -4,14 +4,12 @@
   <version>1.3.0</version>
   <description> Xacro model and usb driver for basic communication with Schunk EZN64 gripper </description>
   
-  <maintainer email="durovsky987@gmail.com">durovsky</maintainer>
-  
+  <maintainer email="frantisek.durovsky@smartroboticsys.eu">Frantisek Durovsky</maintainer>
   <license>BSD</license>
-
   <url type="website">http://www.smartroboticsys.eu/</url> 
+  <author email="frantisek.durovsky@smartroboticsys.eu">Frantisek Durovsky</author>
   
   <buildtool_depend>catkin</buildtool_depend>
-
   <build_depend>roscpp</build_depend>
   <build_depend>libusb-1.0</build_depend>
   <build_depend>message_generation</build_depend>
