@@ -2,9 +2,7 @@
 * @file ezn64_usb_control_lib.h
 *
 * Copyright (c)
-* 
-* Department of Robotics
-* Technical University Kosice
+* SmartRoboticSystems
 * September 2015
 *
 * All rights reserved.
