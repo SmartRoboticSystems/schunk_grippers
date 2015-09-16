@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <package>
   <name>schunk_grippers</name>
-  <version>1.3.0</version>
+  <version>1.3.1</version>
   <description>Schunk_grippers stack contains packages for PG70 and EZN64 grippers </description>
   
   <maintainer email="frantisek.durovsky@smartroboticsys.eu">Frantisek Durovsky</maintainer>
@@ -10,8 +10,8 @@
   <author email="frantisek.durovsky@smartroboticsys.eu">Frantisek Durovsky</author>
   
   <buildtool_depend>catkin</buildtool_depend>
-  <run_depend>ezn64</run_depend>
-  <run_depend>pg70</run_depend>
+  <run_depend>schunk_ezn64</run_depend>
+  <run_depend>schunk_pg70</run_depend>
 
   <export>
     <metapackage/>
