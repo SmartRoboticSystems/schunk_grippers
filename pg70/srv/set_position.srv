@@ -1,5 +1,0 @@
-float32 goal_position
-float32 goal_velocity
-float32 goal_acceleration
----
-bool goal_accepted
