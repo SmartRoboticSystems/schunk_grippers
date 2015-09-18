@@ -2,6 +2,11 @@
 Changelog for package schunk_ezn64
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* finished renaming from pg70 to schunk_pg70
+* Contributors: durovsky
+
 1.3.2 (2015-09-18)
 ------------------
 * added acknowleding error
