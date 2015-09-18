@@ -4,6 +4,8 @@ Changelog for package schunk_grippers
 
 Forthcoming
 -----------
+* added CHANGELOGS
+* Contributors: durovsky
 
 1.3.2 (2015-09-18)
 ------------------

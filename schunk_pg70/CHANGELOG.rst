@@ -4,6 +4,11 @@ Changelog for package schunk_pg70
 
 Forthcoming
 -----------
+* added schunk\_ in front of package name
+* added CHANGELOGS
+* finished renaming from ezn64 to schunk_ezn64
+* Contributors: durovsky
+
 * finished renaming from ezn64 to schunk_ezn64
 * Contributors: durovsky
 
