@@ -1,6 +1,6 @@
 <?xml version="1.0" ?>
 <launch>
-  <node name="ezn64" pkg="ezn64" type="ezn64" output="screen" >
+  <node name="schunk_ezn64" pkg="schunk_ezn64" type="schunk_ezn64" output="screen" >
     <rosparam>
       vendor_id: 7358
       product_id: 371
