@@ -35,7 +35,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 #include <pg70_rs232_control.h>
 
-namespace pg70
+namespace schunk_pg70
 {
 
 PG70_serial::PG70_serial(ros::NodeHandle *nh) :
@@ -372,16 +372,16 @@ PG70_serial::stop(serial::Serial *port)
 /////////////////////////////////////////////////////////////
 
 bool
-PG70_serial::referenceCallback(pg70::reference::Request &req,
-                               pg70::reference::Response &res)
+PG70_serial::referenceCallback(schunk_pg70::reference::Request &req,
+                               schunk_pg70::reference::Response &res)
 {
   ROS_INFO("PG70: Reference Cmd recieved ");
   reference(com_port_);     
 }
 
 bool
-PG70_serial::setPositionCallback(pg70::set_position::Request &req,
-                                 pg70::set_position::Response &res)
+PG70_serial::setPositionCallback(schunk_pg70::set_position::Request &req,
+                                 schunk_pg70::set_position::Response &res)
 {
   
   //Check if goal request respects position limits <0-69> mm
@@ -416,24 +416,24 @@ PG70_serial::setPositionCallback(pg70::set_position::Request &req,
 }
 
 bool
-PG70_serial::getPositionCallback(pg70::get_position::Request &req,
-                                 pg70::get_position::Response &res)
+PG70_serial::getPositionCallback(schunk_pg70::get_position::Request &req,
+                                 schunk_pg70::get_position::Response &res)
 {
   ROS_INFO("PG70: Get position request recieved");
   res.actual_position = getPosition(com_port_);   
 }
 
 bool
-PG70_serial::getErrorCallback(pg70::get_error::Request &req,
-                              pg70::get_error::Response &res)
+PG70_serial::getErrorCallback(schunk_pg70::get_error::Request &req,
+                              schunk_pg70::get_error::Response &res)
 {
   ROS_INFO("PG70: Get state request recieved");
   res.error_code = getError(com_port_);
 }
 
 bool
-PG70_serial::acknowledgeErrorCallback(pg70::acknowledge_error::Request &req,
-                                      pg70::acknowledge_error::Response &res)
+PG70_serial::acknowledgeErrorCallback(schunk_pg70::acknowledge_error::Request &req,
+                                      schunk_pg70::acknowledge_error::Response &res)
 {
   ROS_INFO("PG70: Cmd Acknowledge error recieved");
   acknowledgeError(com_port_);
@@ -445,8 +445,8 @@ PG70_serial::acknowledgeErrorCallback(pg70::acknowledge_error::Request &req,
 }
 
 bool
-PG70_serial::stopCallback(pg70::stop::Request &req,
-                          pg70::stop::Response &res)
+PG70_serial::stopCallback(schunk_pg70::stop::Request &req,
+                          schunk_pg70::stop::Response &res)
 {
   ROS_INFO("PG70: Cmd Stop recieved");
   stop(com_port_);
@@ -569,6 +569,6 @@ PG70_serial::CRC16(uint16_t crc, uint16_t data)
 
   return(((crc & 0xFF00) >> 8)  ^ tbl[(crc & 0x00FF) ^ (data & 0x00FF)]);
 }
-}  //pg70
+}  //schunk_pg70
 
 #endif //PG70_RS232_CONTROL_LIB_CPP

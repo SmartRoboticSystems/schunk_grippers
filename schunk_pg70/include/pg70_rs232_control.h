@@ -39,15 +39,15 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <sensor_msgs/JointState.h>
 
 //Service headers
-#include <pg70/reference.h>
-#include <pg70/set_position.h>
-#include <pg70/get_error.h>
-#include <pg70/get_position.h>
-#include <pg70/acknowledge_error.h>
-#include <pg70/stop.h>
+#include <schunk_pg70/reference.h>
+#include <schunk_pg70/set_position.h>
+#include <schunk_pg70/get_error.h>
+#include <schunk_pg70/get_position.h>
+#include <schunk_pg70/acknowledge_error.h>
+#include <schunk_pg70/stop.h>
 
 /** \brief Control of Schunk PG70 gripper */
-namespace pg70
+namespace schunk_pg70
 {
 
 /** \brief Client class for PG70 serial control */  
@@ -61,28 +61,28 @@ public:
   ~PG70_serial();
   
   /** \brief Reference service callback */
-  bool referenceCallback(pg70::reference::Request &req,
-                         pg70::reference::Response &res);
+  bool referenceCallback(schunk_pg70::reference::Request &req,
+                         schunk_pg70::reference::Response &res);
   
   /** \brief GetError service callback */
-  bool getErrorCallback(pg70::get_error::Request &req,
-                        pg70::get_error::Response &res);
+  bool getErrorCallback(schunk_pg70::get_error::Request &req,
+                        schunk_pg70::get_error::Response &res);
   
   /** \brief GetPosition service callback */
-  bool getPositionCallback(pg70::get_position::Request &req,
-                           pg70::get_position::Response &res);
+  bool getPositionCallback(schunk_pg70::get_position::Request &req,
+                           schunk_pg70::get_position::Response &res);
 
    /** \brief SetPosition service callback */
-  bool setPositionCallback(pg70::set_position::Request &req,
-                           pg70::set_position::Response &res);
+  bool setPositionCallback(schunk_pg70::set_position::Request &req,
+                           schunk_pg70::set_position::Response &res);
   
    /** \brief AcknowledgeError service callback */
-  bool acknowledgeErrorCallback(pg70::acknowledge_error::Request &req,
-                                pg70::acknowledge_error::Response &res);
+  bool acknowledgeErrorCallback(schunk_pg70::acknowledge_error::Request &req,
+                                schunk_pg70::acknowledge_error::Response &res);
   
   /** \brief Stop service callback */
-  bool stopCallback(pg70::stop::Request &req,
-                    pg70::stop::Response &res);
+  bool stopCallback(schunk_pg70::stop::Request &req,
+                    schunk_pg70::stop::Response &res);
   
    /** \brief Timer callback to read serial input buffer periodically */
   void timerCallback(const ros::TimerEvent &event);  
@@ -150,6 +150,6 @@ private:
   static const int    URDF_SCALE_FACTOR = 2000;
     
 };  //PG70_serial
-}   //pg70
+}   //schunk_pg70
 
 #endif //PG70_RS232_CONTROL_H
