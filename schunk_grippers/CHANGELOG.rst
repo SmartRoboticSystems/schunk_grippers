@@ -2,8 +2,8 @@
 Changelog for package schunk_grippers
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+1.3.3 (2015-09-18)
+------------------
 * added CHANGELOGS
 * Contributors: durovsky
 

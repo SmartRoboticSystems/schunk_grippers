@@ -2,8 +2,8 @@
 Changelog for package schunk_ezn64
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+1.3.3 (2015-09-18)
+------------------
 * added schunk\_ in front of package name
 * added CHANGELOGS
 * finished renaming from pg70 to schunk_pg70
