@@ -2,8 +2,8 @@
 Changelog for package schunk_ezn64
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+1.3.2 (2015-09-18)
+------------------
 * added acknowleding error
 * updated launch file
 * 1.3.1
