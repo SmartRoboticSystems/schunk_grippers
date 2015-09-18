@@ -63,7 +63,11 @@ EZN64_usb::EZN64_usb(ros::NodeHandle *nh) :
     }
     
     //If emergency stop error occured, acknowledge
-    if(ezn64_error_ == 0xd9) acknowledgeError(ezn64_handle_);
+    if(ezn64_error_ == 0xd9)
+    {
+      ROS_INFO_STREAM("Acknowleding Emergency stop error ...");
+      acknowledgeError(ezn64_handle_);
+    }
   
     //Start periodic gripper position reading
     getPeriodicPositionUpdate(ezn64_handle_, TF_UPDATE_PERIOD);     
