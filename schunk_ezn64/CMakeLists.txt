@@ -34,5 +34,5 @@ catkin_package(
   DEPENDS libusb-1.0)
 
 add_executable(${PROJECT_NAME} ${SOURCES} ${HEADERS})
-add_dependencies(${PROJECT_NAME} ${catkin_EXPORTED_TARGETS} ezn64_gencpp)
+add_dependencies(${PROJECT_NAME} ${catkin_EXPORTED_TARGETS} schunk_ezn64_gencpp)
 target_link_libraries(${PROJECT_NAME} ${ROS_LIBRARIES} ${catkin_LIBRARIES} ${LIBUSB1_LIBRARIES})
