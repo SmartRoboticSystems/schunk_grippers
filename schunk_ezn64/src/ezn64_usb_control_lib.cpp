@@ -34,7 +34,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define EZN64_USB_CONTROL_LIB_CPP
 
 #include <ezn64_usb_control.h>
-namespace ezn64
+namespace schunk_ezn64
 {
 
 EZN64_usb::EZN64_usb(ros::NodeHandle *nh) :
@@ -282,16 +282,16 @@ EZN64_usb::stop(libusb_device_handle *handle)
 ///////////////////////////////////////////////////////////////
 
 bool
-EZN64_usb::referenceCallback(ezn64::reference::Request &req,
-                                 ezn64::reference::Response &res)
+EZN64_usb::referenceCallback(schunk_ezn64::reference::Request &req,
+                             schunk_ezn64::reference::Response &res)
 {
   ROS_INFO("EZN64: Reference Cmd recieved ");
   reference(ezn64_handle_);           
 }
 
 bool
-EZN64_usb::setPositionCallback(ezn64::set_position::Request &req,
-                                    ezn64::set_position::Response &res)
+EZN64_usb::setPositionCallback(schunk_ezn64::set_position::Request &req,
+                               schunk_ezn64::set_position::Response &res)
 {
   //Check if goal request respects gripper limits <0-12> mm
   if ((req.goal_position >= MIN_GRIPPER_POS_LIMIT)
@@ -308,24 +308,24 @@ EZN64_usb::setPositionCallback(ezn64::set_position::Request &req,
 }
 
 bool
-EZN64_usb::getErrorCallback(ezn64::get_error::Request &req,
-                            ezn64::get_error::Response &res)
+EZN64_usb::getErrorCallback(schunk_ezn64::get_error::Request &req,
+                            schunk_ezn64::get_error::Response &res)
 {
   ROS_INFO:("EZN64: Get Error request recieved");
   res.error_code = getError(ezn64_handle_);
 }
 
 bool
-EZN64_usb::getPositionCallback(ezn64::get_position::Request &req,
-                               ezn64::get_position::Response &res)
+EZN64_usb::getPositionCallback(schunk_ezn64::get_position::Request &req,
+                               schunk_ezn64::get_position::Response &res)
 {
   ROS_INFO("EZN64: Get position request recieved");
   res.actual_position = act_position_;    
 }
 
 bool
-EZN64_usb::acknowledgeErrorCallback(ezn64::acknowledge_error::Request &req,
-                                      ezn64::acknowledge_error::Response &res)
+EZN64_usb::acknowledgeErrorCallback(schunk_ezn64::acknowledge_error::Request &req,
+                                    schunk_ezn64::acknowledge_error::Response &res)
 {
   ROS_INFO("EZN64: Cmd Acknowledge error recieved");
   acknowledgeError(ezn64_handle_);
@@ -338,8 +338,8 @@ EZN64_usb::acknowledgeErrorCallback(ezn64::acknowledge_error::Request &req,
 
 
 bool
-EZN64_usb::stopCallback(ezn64::stop::Request &req,
-                         ezn64::stop::Response &res)
+EZN64_usb::stopCallback(schunk_ezn64::stop::Request &req,
+                        schunk_ezn64::stop::Response &res)
 {
   ROS_INFO("EZN64: Cmd Stop recieved");
   stop(ezn64_handle_);
@@ -621,6 +621,6 @@ EZN64_usb::float_to_IEEE_754(float position, unsigned int *output_array)
     output_array[i] = (static_cast<unsigned int>(p_byte[i]));
 }
 
-} //ezn64
+} //schunk_ezn64
 
 #endif //EZN64_USB_CONTROL_LIB_CPP

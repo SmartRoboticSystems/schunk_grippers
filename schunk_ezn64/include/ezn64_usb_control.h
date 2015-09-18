@@ -39,15 +39,15 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #include <sensor_msgs/JointState.h>
 
 ///Service headers
-#include <ezn64/reference.h>
-#include <ezn64/set_position.h>
-#include <ezn64/get_error.h>
-#include <ezn64/get_position.h>
-#include <ezn64/acknowledge_error.h>
-#include <ezn64/stop.h>
+#include <schunk_ezn64/reference.h>
+#include <schunk_ezn64/set_position.h>
+#include <schunk_ezn64/get_error.h>
+#include <schunk_ezn64/get_position.h>
+#include <schunk_ezn64/acknowledge_error.h>
+#include <schunk_ezn64/stop.h>
 
 /** \brief Control of Schunk EZN64 gripper */
-namespace ezn64
+namespace schunk_ezn64
 {
 
 /** \brief Client class for EZN64 USB control */  
@@ -61,28 +61,28 @@ public:
   ~EZN64_usb();
   
   /** \brief Reference service callback */
-  bool referenceCallback(ezn64::reference::Request &req,
-                         ezn64::reference::Response &res);
+  bool referenceCallback(schunk_ezn64::reference::Request &req,
+                         schunk_ezn64::reference::Response &res);
      
   /** \brief GetError service callback */
-  bool getErrorCallback(ezn64::get_error::Request &req,
-                        ezn64::get_error::Response &res);
+  bool getErrorCallback(schunk_ezn64::get_error::Request &req,
+                        schunk_ezn64::get_error::Response &res);
   
    /** \brief AcknowledgeError service callback */
-  bool acknowledgeErrorCallback(ezn64::acknowledge_error::Request &req,
-                                ezn64::acknowledge_error::Response &res);
+  bool acknowledgeErrorCallback(schunk_ezn64::acknowledge_error::Request &req,
+                                schunk_ezn64::acknowledge_error::Response &res);
   
   /** \brief SetPosition service callback */
-  bool setPositionCallback(ezn64::set_position::Request &req,
-                           ezn64::set_position::Response &res);
+  bool setPositionCallback(schunk_ezn64::set_position::Request &req,
+                           schunk_ezn64::set_position::Response &res);
   
   /** \brief GetPosition service callback */
-  bool getPositionCallback(ezn64::get_position::Request &req,
-                           ezn64::get_position::Response &res);
+  bool getPositionCallback(schunk_ezn64::get_position::Request &req,
+                           schunk_ezn64::get_position::Response &res);
   
    /** \brief Stop service callback */
-  bool stopCallback(ezn64::stop::Request &req,
-                    ezn64::stop::Response &res);
+  bool stopCallback(schunk_ezn64::stop::Request &req,
+                    schunk_ezn64::stop::Response &res);
   
    /** \brief Timer callback to read USB input buffer periodically */
   void timerCallback(const ros::TimerEvent &event);  
@@ -168,6 +168,6 @@ private:
   static const int    URDF_SCALE_FACTOR = 1000;
   
 };  //EZN64_usb
-}   //ezn64
+}   //schunk_ezn64
 
 #endif //EZN64_USB_CONTROL_H

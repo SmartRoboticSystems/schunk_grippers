@@ -39,17 +39,17 @@ main(int argc, char *argv[])
   ros::NodeHandle nh;
 
   //Create gripper object instance
-  ezn64::EZN64_usb gripper(&nh);
+  schunk_ezn64::EZN64_usb gripper(&nh);
          
   //Initialize user interface
-  ros::ServiceServer reference_service         = nh.advertiseService("ezn64/reference", &ezn64::EZN64_usb::referenceCallback, &gripper);
-  ros::ServiceServer set_position_service      = nh.advertiseService("ezn64/set_position", &ezn64::EZN64_usb::setPositionCallback, &gripper);
-  ros::ServiceServer get_error_service         = nh.advertiseService("ezn64/get_error", &ezn64::EZN64_usb::getErrorCallback, &gripper);
-  ros::ServiceServer get_position_service      = nh.advertiseService("ezn64/get_position", &ezn64::EZN64_usb::getPositionCallback, &gripper);
-  ros::ServiceServer acknowledge_error_service = nh.advertiseService("ezn64/acknowledge_error", &ezn64::EZN64_usb::acknowledgeErrorCallback, &gripper);
-  ros::ServiceServer stop_service              = nh.advertiseService("ezn64/stop", &ezn64::EZN64_usb::stopCallback, &gripper);
+  ros::ServiceServer reference_service         = nh.advertiseService("schunk_ezn64/reference", &schunk_ezn64::EZN64_usb::referenceCallback, &gripper);
+  ros::ServiceServer set_position_service      = nh.advertiseService("schunk_ezn64/set_position", &schunk_ezn64::EZN64_usb::setPositionCallback, &gripper);
+  ros::ServiceServer get_error_service         = nh.advertiseService("schunk_ezn64/get_error", &schunk_ezn64::EZN64_usb::getErrorCallback, &gripper);
+  ros::ServiceServer get_position_service      = nh.advertiseService("schunk_ezn64/get_position", &schunk_ezn64::EZN64_usb::getPositionCallback, &gripper);
+  ros::ServiceServer acknowledge_error_service = nh.advertiseService("schunk_ezn64/acknowledge_error", &schunk_ezn64::EZN64_usb::acknowledgeErrorCallback, &gripper);
+  ros::ServiceServer stop_service              = nh.advertiseService("schunk_ezn64/stop", &schunk_ezn64::EZN64_usb::stopCallback, &gripper);
   
-  ros::Timer timer = nh.createTimer(ros::Duration(gripper.TF_UPDATE_PERIOD), &ezn64::EZN64_usb::timerCallback, &gripper);
+  ros::Timer timer = nh.createTimer(ros::Duration(gripper.TF_UPDATE_PERIOD), &schunk_ezn64::EZN64_usb::timerCallback, &gripper);
   gripper.joint_pub = nh.advertise<sensor_msgs::JointState>("joint_states", 1); 
   
   ros::spin();
