@@ -2,8 +2,7 @@ cmake_minimum_required(VERSION 2.8.3)
 project(schunk_ezn64)
 
 find_package(PkgConfig REQUIRED)
-pkg_search_module(LIBUSB1 REQUIRED libusb-1.0)
-include_directories(SYSTEM ${LIBUSB1_INCLUDE_DIRS})
+pkg_check_modules(PC_LIBUSB REQUIRED libusb-1.0)
 
 find_package(catkin REQUIRED COMPONENTS
   roscpp
@@ -31,8 +30,8 @@ catkin_package(
   INCLUDE_DIRS include
   CATKIN_DEPENDS roscpp 
   LIBRARIES
-  DEPENDS libusb-1.0)
+  DEPENDS)
 
 add_executable(${PROJECT_NAME} ${SOURCES} ${HEADERS})
 add_dependencies(${PROJECT_NAME} ${catkin_EXPORTED_TARGETS} schunk_ezn64_gencpp)
-target_link_libraries(${PROJECT_NAME} ${ROS_LIBRARIES} ${catkin_LIBRARIES} ${LIBUSB1_LIBRARIES})
+target_link_libraries(${PROJECT_NAME} ${ROS_LIBRARIES} ${catkin_LIBRARIES} ${PC_LIBUSB_LIBRARIES})

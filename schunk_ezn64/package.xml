@@ -11,10 +11,10 @@
   
   <buildtool_depend>catkin</buildtool_depend>
   <build_depend>roscpp</build_depend>
-  <build_depend>libusb-1.0</build_depend>
+  <build_depend>libusb-1.0-dev</build_depend>
   <build_depend>message_generation</build_depend>
   
   <run_depend>roscpp</run_depend>
-  <run_depend>libusb-1.0</run_depend>
+  <run_depend>libusb-1.0-dev</run_depend>
     
 </package>
