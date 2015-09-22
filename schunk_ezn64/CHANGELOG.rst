@@ -2,6 +2,11 @@
 Changelog for package schunk_ezn64
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* changed libusb dependencies
+* Contributors: durovsky
+
 1.3.3 (2015-09-18)
 ------------------
 * added schunk\_ in front of package name
