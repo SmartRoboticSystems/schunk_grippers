@@ -2,6 +2,11 @@
 Changelog for package schunk_ezn64
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* added tf dependency
+* Contributors: durovsky
+
 1.3.4 (2015-09-22)
 ------------------
 * changed libusb dependencies
