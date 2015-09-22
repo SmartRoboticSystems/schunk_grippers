@@ -34,7 +34,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 #define EZN64_USB_CONTROL_H
 
 #include <ros/ros.h>
-#include <libusb.h>
+#include <libusb-1.0/libusb.h>
 #include <tf/transform_broadcaster.h>
 #include <sensor_msgs/JointState.h>
 
