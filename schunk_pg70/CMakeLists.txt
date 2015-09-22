@@ -5,6 +5,7 @@ find_package(catkin REQUIRED COMPONENTS
   roscpp
   serial
   message_generation
+  tf
   )
 
 include_directories(${catkin_INCLUDE_DIRS}
@@ -26,9 +27,8 @@ generate_messages(DEPENDENCIES)
 
 catkin_package(
   INCLUDE_DIRS include
-  CATKIN_DEPENDS roscpp serial
   LIBRARIES
-  DEPENDS
+  DEPENDS roscpp serial tf
   )
 
 add_executable(${PROJECT_NAME} ${SOURCES} ${HEADERS})

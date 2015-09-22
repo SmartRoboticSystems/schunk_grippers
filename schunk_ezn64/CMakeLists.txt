@@ -7,6 +7,7 @@ pkg_check_modules(PC_LIBUSB REQUIRED libusb-1.0)
 find_package(catkin REQUIRED COMPONENTS
   roscpp
   message_generation
+  tf
   )
 
 include_directories(${catkin_INCLUDE_DIRS}
@@ -28,9 +29,8 @@ generate_messages(DEPENDENCIES)
 
 catkin_package(
   INCLUDE_DIRS include
-  CATKIN_DEPENDS roscpp 
   LIBRARIES
-  DEPENDS)
+  DEPENDS roscpp tf)
 
 add_executable(${PROJECT_NAME} ${SOURCES} ${HEADERS})
 add_dependencies(${PROJECT_NAME} ${catkin_EXPORTED_TARGETS} schunk_ezn64_gencpp)
