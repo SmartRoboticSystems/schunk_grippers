@@ -1,0 +1,13 @@
+<?xml version="1.0"?>
+<robot xmlns:xacro="http://www.ros.org/wiki/xacro"
+  name="schunk_pg70">
+  <xacro:include filename="$(find schunk_pg70)/urdf/pg70.urdf.xacro"/>
+  
+  <link name="base_link" />
+  
+  <xacro:schunk_pg70 name="schunk_pg70" parent="base_link" >
+    <origin xyz="0 0 0" rpy="0 0 0" />
+  </xacro:schunk_pg70>
+
+ </robot>
+          
