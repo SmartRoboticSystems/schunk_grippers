@@ -14,7 +14,7 @@
     <link name="${name}_palm_link">
       <visual>
         <geometry>
-          <mesh filename="package://pg70/meshes/pg70.dae" />
+          <mesh filename="package://schunk_pg70/meshes/pg70.dae" />
         </geometry>
         <material name="blue">
           <color rgba="0 0 1 1"/>
@@ -22,7 +22,7 @@
       </visual>
       <collision>
         <geometry>
-          <mesh filename="package://pg70/meshes/pg70.dae" />
+          <mesh filename="package://schunk_pg70/meshes/pg70.dae" />
         </geometry>
 	<material name="blue"/>
       </collision>
@@ -109,7 +109,6 @@
 <!-- RIGHT FINGERTIP -->
 
     <joint name="${name}_fingertip_right_joint" type="fixed" >
-<!--       <mimic joint="${name}_finger_left_joint" multiplier="1" offset="0"/> -->
       <parent link="${name}_finger_right_link" />
       <child link="${name}_fingertip_right_link" />
       <origin xyz="0 -0.01 0.045" rpy="0 0 0"/>
