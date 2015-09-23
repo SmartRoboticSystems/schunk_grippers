@@ -3,15 +3,15 @@
  
   <xacro:macro name="schunk_pg70" params="parent name *origin ">
 
-    <joint name="${name}_palm_joint" type="fixed" >
+    <joint name="${name}_base_joint" type="fixed" >
       <parent link="${parent}" />
-      <child link="${name}_palm_link" />
+      <child link="${name}_base_link" />
       <xacro:insert_block name="origin" />
     </joint>
 
 <!--     PALM -->
     
-    <link name="${name}_palm_link">
+    <link name="${name}_base_link">
       <visual>
         <geometry>
           <mesh filename="package://schunk_pg70/meshes/pg70.dae" />
@@ -31,7 +31,7 @@
 <!-- LEFT FINGER BASE -->
     
     <joint name="${name}_finger_left_joint" type="prismatic" >
-      <parent link="${name}_palm_link" />
+      <parent link="${name}_base_link" />
       <child link="${name}_finger_left_link" />
       <limit effort="100" lower="-0.001" upper="0.04" velocity="2.0"/>
       <origin xyz="0 0 0.0789" rpy="0 0 0"/>
@@ -84,7 +84,7 @@
 
     <joint name="${name}_finger_right_joint" type="prismatic" >
       <mimic joint="${name}_finger_left_joint" multiplier="1" offset="0"/>
-      <parent link="${name}_palm_link" />
+      <parent link="${name}_base_link" />
       <child link="${name}_finger_right_link" />
       <limit effort="100" lower="-0.001" upper="0.04" velocity="2.0"/>
       <origin xyz="0 0 0.0789" rpy="-0 0 0"/>
