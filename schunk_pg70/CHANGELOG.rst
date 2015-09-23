@@ -2,8 +2,8 @@
 Changelog for package schunk_pg70
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+1.3.6 (2015-09-23)
+------------------
 * palm link changed to base link to stay consistent with ezn64
 * pg70 find_packages changed to schunk_pg70
 * added standalone visualization
