@@ -2,6 +2,12 @@
 Changelog for package schunk_ezn64
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* palm link changed to base link
+* added standalone visualization xacro model
+* Contributors: durovsky
+
 1.3.5 (2015-09-22)
 ------------------
 * added tf dependency

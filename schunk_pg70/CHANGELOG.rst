@@ -2,6 +2,13 @@
 Changelog for package schunk_pg70
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* palm link changed to base link to stay consistent with ezn64
+* pg70 find_packages changed to schunk_pg70
+* added standalone visualization
+* Contributors: durovsky
+
 1.3.5 (2015-09-22)
 ------------------
 * added tf dependency
