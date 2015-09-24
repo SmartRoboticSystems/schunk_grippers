@@ -42,9 +42,9 @@ EZN64_usb::EZN64_usb(ros::NodeHandle *nh) :
     ezn64_error_(0xff)
 {
   //Read launch file params
-  nh->getParam("ezn64/gripper_id", gripper_id_);
-  nh->getParam("ezn64/vendor_id",  vendor_id_);
-  nh->getParam("ezn64/product_id", product_id_);
+  nh->getParam("schunk_ezn64/gripper_id", gripper_id_);
+  nh->getParam("schunk_ezn64/vendor_id",  vendor_id_);
+  nh->getParam("schunk_ezn64/product_id", product_id_);
      
   //Look for Schunk EZN64 controller on USB
   ezn64_dev_ = find_ezn64_dev(vendor_id_, product_id_);
@@ -71,7 +71,7 @@ EZN64_usb::EZN64_usb(ros::NodeHandle *nh) :
   
     //Start periodic gripper position reading
     getPeriodicPositionUpdate(ezn64_handle_, TF_UPDATE_PERIOD);     
-  }
+  } 
 }
 
 EZN64_usb::~EZN64_usb()
@@ -562,37 +562,46 @@ EZN64_usb::print_libusb_dev(libusb_device *dev)
     return;
   }
 
-  ROS_INFO_STREAM("EZN64: Number of possible configurations: " << (int)desc.bNumConfigurations);
-  ROS_INFO_STREAM("EZN64: VendorID: "  << desc.idVendor);
-  ROS_INFO_STREAM("EZN64: ProductID: " << desc.idProduct);
-
-  libusb_config_descriptor *config;
-  libusb_get_config_descriptor(dev, 0, &config);
-  ROS_INFO_STREAM("EZN64: Interfaces: "<<(int)config->bNumInterfaces);
-
-  const libusb_interface *inter;
-  const libusb_interface_descriptor *interdesc;
-  const libusb_endpoint_descriptor *epdesc;
-
-  for(int i=0; i<(int)config->bNumInterfaces; i++) 
+  if((int)desc.bNumConfigurations > 0)
   {
-    inter = &config->interface[i];
-    ROS_DEBUG_STREAM("Number of alternate settings: " <<inter->num_altsetting );
-    for(int j=0; j<inter->num_altsetting; j++)
+    ROS_INFO_STREAM("EZN64: Number of possible configurations: " << (int)desc.bNumConfigurations);
+    ROS_INFO_STREAM("EZN64: VendorID: "  << desc.idVendor);
+    ROS_INFO_STREAM("EZN64: ProductID: " << desc.idProduct);
+
+    libusb_config_descriptor *config;
+    libusb_get_config_descriptor(dev, 0, &config);
+    ROS_INFO_STREAM("EZN64: Interfaces: " << (int)config->bNumInterfaces);
+
+    const libusb_interface *inter;
+    const libusb_interface_descriptor *interdesc;
+    const libusb_endpoint_descriptor *epdesc;
+
+    for(int i = 0; i < (int)config->bNumInterfaces; i++) 
     {
-      interdesc = &inter->altsetting[j];
-      ROS_DEBUG_STREAM("Interface Number: " << (int)interdesc->bInterfaceNumber);
-      ROS_DEBUG_STREAM("Number of endpoints: " << (int)interdesc->bNumEndpoints);
-      for(int k=0; k<(int)interdesc->bNumEndpoints; k++) 
+      inter = &config->interface[i];
+      ROS_DEBUG_STREAM("Number of alternate settings: " << inter->num_altsetting );
+      for(int j = 0; j < inter->num_altsetting; j++)
       {
-        epdesc = &interdesc->endpoint[k];
-        ROS_DEBUG_STREAM("Descriptor Type: "<< (int)epdesc->bDescriptorType);
-        ROS_DEBUG_STREAM("EP Address: "<< (int)epdesc->bEndpointAddress);
+        interdesc = &inter->altsetting[j];
+        ROS_DEBUG_STREAM("Interface Number: " << (int)interdesc->bInterfaceNumber);
+        ROS_DEBUG_STREAM("Number of endpoints: " << (int)interdesc->bNumEndpoints);
+        for(int k = 0; k < (int)interdesc->bNumEndpoints; k++) 
+        {
+          epdesc = &interdesc->endpoint[k];
+          ROS_DEBUG_STREAM("Descriptor Type: "<< (int)epdesc->bDescriptorType);
+          ROS_DEBUG_STREAM("EP Address: "<< (int)epdesc->bEndpointAddress);
+        }
       }
     }
+    libusb_free_config_descriptor(config);
   }
+  else
+  {
+    ROS_ERROR("No Schunk EZN64 gripper found! Aborting...");
+    exit(-1);
+  }
+    
 
-  libusb_free_config_descriptor(config);
 }
 
 float

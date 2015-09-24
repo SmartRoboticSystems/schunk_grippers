@@ -43,9 +43,9 @@ PG70_serial::PG70_serial(ros::NodeHandle *nh) :
     pg70_error_(0xff)
 {
   //Read launch file params
-  nh->getParam("pg70/portname", port_name_);
-  nh->getParam("pg70/baudrate", baudrate_);
-  nh->getParam("pg70/gripper_id", gripper_id_);
+  nh->getParam("schunk_pg70/portname", port_name_);
+  nh->getParam("schunk_pg70/baudrate", baudrate_);
+  nh->getParam("schunk_pg70/gripper_id", gripper_id_);
   
   //Initialize and open serial port
   com_port_ = new serial::Serial (port_name_, (uint32_t)baudrate_, serial::Timeout::simpleTimeout(100));
