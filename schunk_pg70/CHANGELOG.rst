@@ -2,6 +2,11 @@
 Changelog for package schunk_pg70
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+* fixed wrong getParam names
+* Contributors: durovsky
+
 1.3.6 (2015-09-23)
 ------------------
 * palm link changed to base link to stay consistent with ezn64

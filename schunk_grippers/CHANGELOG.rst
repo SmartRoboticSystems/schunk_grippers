@@ -2,6 +2,9 @@
 Changelog for package schunk_grippers
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
+Forthcoming
+-----------
+
 1.3.6 (2015-09-23)
 ------------------
 
