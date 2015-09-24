@@ -2,8 +2,8 @@
 Changelog for package schunk_ezn64
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Forthcoming
------------
+1.3.7 (2015-09-24)
+------------------
 * fixed wrong getParam names
 * Contributors: durovsky
 
