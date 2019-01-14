@@ -91,7 +91,7 @@ public:
   ros::Publisher joint_pub;
   
   /** \brief TF update period in seconds */
-  static const float TF_UPDATE_PERIOD = 0.1;   
+  static constexpr float TF_UPDATE_PERIOD = 0.1;   
    
 private:
 
@@ -138,16 +138,16 @@ private:
   //Serial variables
   serial::Serial *com_port_;
   
-  //Consts
-  static const double MIN_GRIPPER_POS_LIMIT = 0;
-  static const double MAX_GRIPPER_POS_LIMIT = 69;
-  static const double MIN_GRIPPER_VEL_LIMIT = 0;
-  static const double MAX_GRIPPER_VEL_LIMIT = 83;
-  static const double MIN_GRIPPER_ACC_LIMIT = 0;
-  static const double MAX_GRIPPER_ACC_LIMIT = 320;
-  static const double WAIT_FOR_RESPONSE_INTERVAL = 0.5;
-  static const double INPUT_BUFFER_SIZE = 64;
-  static const int    URDF_SCALE_FACTOR = 2000;
+  //constexprs
+  static constexpr double MIN_GRIPPER_POS_LIMIT = 0;
+  static constexpr double MAX_GRIPPER_POS_LIMIT = 69;
+  static constexpr double MIN_GRIPPER_VEL_LIMIT = 0;
+  static constexpr double MAX_GRIPPER_VEL_LIMIT = 83;
+  static constexpr double MIN_GRIPPER_ACC_LIMIT = 0;
+  static constexpr double MAX_GRIPPER_ACC_LIMIT = 320;
+  static constexpr double WAIT_FOR_RESPONSE_INTERVAL = 0.5;
+  static constexpr double INPUT_BUFFER_SIZE = 64;
+  static constexpr int    URDF_SCALE_FACTOR = 2000;
     
 };  //PG70_serial
 }   //schunk_pg70

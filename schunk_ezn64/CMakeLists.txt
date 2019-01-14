@@ -1,5 +1,6 @@
 cmake_minimum_required(VERSION 2.8.3)
 project(schunk_ezn64)
+add_compile_options(-std=c++11)
 
 find_package(PkgConfig REQUIRED)
 pkg_check_modules(PC_LIBUSB REQUIRED libusb-1.0)

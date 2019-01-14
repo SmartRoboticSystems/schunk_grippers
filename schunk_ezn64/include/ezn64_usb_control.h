@@ -91,7 +91,7 @@ public:
   ros::Publisher joint_pub;
   
     /** \brief TF update period in seconds */
-  static const float TF_UPDATE_PERIOD = 0.1;   
+  static constexpr float TF_UPDATE_PERIOD = 0.1;   
   
 private:
     
@@ -157,15 +157,15 @@ private:
   libusb_context *usb_context_;
   libusb_device_handle *ezn64_handle_;
   
-  //Consts 
-  static const double MIN_GRIPPER_POS_LIMIT = 0;
-  static const double MAX_GRIPPER_POS_LIMIT = 12;
-  static const double WAIT_FOR_RESPONSE_INTERVAL = 0.5;
-  static const int    INPUT_BUFFER_SIZE = 512;
-  static const int    LIBUSB_ENDPOINT = 129;
-  static const int    LIBUSB_TIMEOUT = 1000;
-  static const int    LIBUSB_VERBOSITY_LEVEL = 3;
-  static const int    URDF_SCALE_FACTOR = 1000;
+  //constexprs 
+  static constexpr double MIN_GRIPPER_POS_LIMIT = 0;
+  static constexpr double MAX_GRIPPER_POS_LIMIT = 12;
+  static constexpr double WAIT_FOR_RESPONSE_INTERVAL = 0.5;
+  static constexpr int    INPUT_BUFFER_SIZE = 512;
+  static constexpr int    LIBUSB_ENDPOINT = 129;
+  static constexpr int    LIBUSB_TIMEOUT = 1000;
+  static constexpr int    LIBUSB_VERBOSITY_LEVEL = 3;
+  static constexpr int    URDF_SCALE_FACTOR = 1000;
   
 };  //EZN64_usb
 }   //schunk_ezn64
